@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Transactions - Personal Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1>Transactions</h1>
+            <p class="text-muted">Manage and categorize your transactions</p>
+        </div>
+        <div>
+            <a href="{{ url_for('import_page') }}" class="btn btn-primary">Import CSV</a>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('transactions', filter='all') }}"
+               class="btn btn-outline-secondary {% if current_filter == 'all' %}active{% endif %}">
+                All
+            </a>
+            <a href="{{ url_for('transactions', filter='uncategorized') }}"
+               class="btn btn-outline-secondary {% if current_filter == 'uncategorized' %}active{% endif %}">
+                Uncategorized
+            </a>
+            <a href="{{ url_for('transactions', filter='categorized') }}"
+               class="btn btn-outline-secondary {% if current_filter == 'categorized' %}active{% endif %}">
+                Categorized
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Bar -->
+<div class="row mt-3 d-none" id="bulk-actions">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body py-2 d-flex align-items-center gap-3">
+                <span><strong id="selected-count">0</strong> selected</span>
+                <select class="form-select form-select-sm" style="width: auto;" id="bulk-category">
+                    <option value="">-- Select Category --</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="bulkCategorize()">Apply Category</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">Clear Selection</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
+                        </th>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th class="text-end">Amount</th>
+                        <th style="width: 200px;">Category</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr data-id="{{ transaction.id }}">
+                        <td>
+                            <input type="checkbox" class="form-check-input transaction-checkbox"
+                                   value="{{ transaction.id }}" onchange="updateSelection()">
+                        </td>
+                        <td>{{ transaction.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ transaction.description }}</td>
+                        <td class="text-end {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ "%.2f"|format(transaction.amount) }} EUR
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm category-select"
+                                    data-transaction-id="{{ transaction.id }}"
+                                    onchange="categorizeTransaction(this)">
+                                <option value="">-- Select --</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}"
+                                        {% if transaction.category_id == category.id %}selected{% endif %}
+                                        data-color="{{ category.color }}">
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            No transactions found.
+                            <a href="{{ url_for('import_page') }}">Import a CSV file</a> to get started.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/transactions.js') }}"></script>
+{% endblock %}

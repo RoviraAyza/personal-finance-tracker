@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Import CSV - Personal Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1>Import Transactions</h1>
+        <p class="text-muted">Upload a CSV file from your bank to import transactions</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8">
+        <!-- Upload Section -->
+        <div class="card" id="upload-section">
+            <div class="card-body">
+                <h5 class="card-title">Upload CSV File</h5>
+                <div class="upload-area p-5 text-center border border-2 border-dashed rounded" id="drop-zone">
+                    <div class="mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="text-muted" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        </svg>
+                    </div>
+                    <p class="mb-2">Drag and drop your CSV file here</p>
+                    <p class="text-muted small">or</p>
+                    <input type="file" id="file-input" accept=".csv" class="d-none">
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Choose File
+                    </button>
+                    <p class="text-muted small mt-3">Maximum file size: 5MB</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Section (hidden initially) -->
+        <div class="card mt-4 d-none" id="preview-section">
+            <div class="card-body">
+                <h5 class="card-title">Preview Import</h5>
+                <div id="preview-stats" class="mb-3"></div>
+                <div id="preview-errors" class="mb-3"></div>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th class="text-end">Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-table">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3 d-flex justify-content-between">
+                    <button class="btn btn-secondary" onclick="resetImport()">Cancel</button>
+                    <button class="btn btn-success" id="confirm-btn" onclick="confirmImport()">
+                        Import Transactions
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Section (hidden initially) -->
+        <div class="card mt-4 d-none" id="success-section">
+            <div class="card-body text-center">
+                <div class="text-success mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                </div>
+                <h4>Import Successful!</h4>
+                <p id="success-message"></p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{{ url_for('transactions', filter='uncategorized') }}" class="btn btn-primary">
+                        Categorize Transactions
+                    </a>
+                    <button class="btn btn-outline-secondary" onclick="resetImport()">
+                        Import Another File
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Expected CSV Format</h5>
+                <p class="small text-muted">Your CSV should have these columns:</p>
+                <ul class="small">
+                    <li><strong>Date</strong> - Transaction date (DD/MM/YYYY or YYYY-MM-DD)</li>
+                    <li><strong>Description</strong> - Transaction description</li>
+                    <li><strong>Amount</strong> - Transaction amount (negative for expenses)</li>
+                </ul>
+                <hr>
+                <p class="small text-muted mb-1">Example:</p>
+                <pre class="bg-light p-2 small">Date,Description,Amount
+01/02/2026,GROCERY STORE,-45.32
+02/02/2026,SALARY,2500.00</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/import.js') }}"></script>
+{% endblock %}
