@@ -1,11 +1,12 @@
 import os
 from flask import Flask
 from dotenv import load_dotenv
+from config import get_database_uri, get_database_path
 
 load_dotenv()
 
 
-def create_app():
+def create_app(database_uri=None):
     app = Flask(
         __name__,
         template_folder='../frontend/templates',
@@ -14,12 +15,12 @@ def create_app():
 
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-        'DATABASE_URI',
-        'sqlite:///' + os.path.join(os.path.dirname(__file__), '..', 'database', 'finance.db')
-    )
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_uri or get_database_uri()
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max upload
+
+    # Store database path for settings page
+    app.config['DATABASE_PATH'] = get_database_path()
 
     # Initialize database
     from models import db

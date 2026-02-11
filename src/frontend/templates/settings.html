@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Personal Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1>Settings</h1>
+        <p class="text-muted">Configure your application settings</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8">
+        <!-- Database Configuration -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Database Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="database-path" class="form-label">Database File Path</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="database-path"
+                               value="{{ db_path }}" placeholder="Enter database file path">
+                        <button class="btn btn-primary" type="button" onclick="saveDatabasePath()">
+                            Save
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        The SQLite database file where all your financial data is stored.
+                        <br>Changes require an application restart.
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-2">Current Status</h6>
+                            {% if db_exists %}
+                            <span class="badge bg-success">Database exists</span>
+                            <p class="mb-0 mt-2 small">
+                                Size: {{ "%.2f"|format(db_size / 1024) }} KB
+                            </p>
+                            {% else %}
+                            <span class="badge bg-warning">Database not found</span>
+                            <p class="mb-0 mt-2 small text-muted">
+                                Will be created on first use
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-2">Statistics</h6>
+                            <div id="db-stats">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Danger Zone</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Reset Database</strong>
+                        <p class="mb-0 small text-muted">
+                            Delete all transactions and start fresh. This cannot be undone.
+                        </p>
+                    </div>
+                    <button class="btn btn-outline-danger" onclick="confirmReset()">
+                        Reset Database
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li class="mb-2">
+                        <strong>Backup:</strong> Copy your database file to a safe location regularly.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Cloud sync:</strong> Store your database in a cloud-synced folder
+                        (OneDrive, Dropbox) for automatic backup.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Multiple files:</strong> You can create separate databases for
+                        different accounts or years.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Reset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reset the database?</p>
+                <p class="text-danger"><strong>This will permanently delete:</strong></p>
+                <ul>
+                    <li>All transactions</li>
+                    <li>All import history</li>
+                    <li>All custom categories</li>
+                </ul>
+                <p>Type <strong>RESET</strong> to confirm:</p>
+                <input type="text" class="form-control" id="reset-confirm" placeholder="Type RESET">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="executeReset()" id="reset-btn" disabled>
+                    Reset Database
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+
+    // Enable reset button only when RESET is typed
+    document.getElementById('reset-confirm').addEventListener('input', function() {
+        document.getElementById('reset-btn').disabled = this.value !== 'RESET';
+    });
+});
+
+function loadStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('db-stats').innerHTML = `
+                <p class="mb-1 small">Transactions: <strong>${data.total_transactions}</strong></p>
+                <p class="mb-1 small">Categories: <strong>${data.total_categories}</strong></p>
+                <p class="mb-0 small">Imports: <strong>${data.total_imports}</strong></p>
+            `;
+        })
+        .catch(error => {
+            document.getElementById('db-stats').innerHTML = '<span class="text-danger small">Error loading stats</span>';
+        });
+}
+
+function saveDatabasePath() {
+    const path = document.getElementById('database-path').value.trim();
+
+    if (!path) {
+        showToast('Please enter a database path', 'warning');
+        return;
+    }
+
+    fetch('/settings/database', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ database_path: path })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error || 'Failed to save', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error saving settings', 'error');
+    });
+}
+
+function confirmReset() {
+    document.getElementById('reset-confirm').value = '';
+    document.getElementById('reset-btn').disabled = true;
+    new bootstrap.Modal(document.getElementById('resetModal')).show();
+}
+
+function executeReset() {
+    // This would need a backend endpoint to implement
+    showToast('Reset functionality not yet implemented', 'warning');
+    bootstrap.Modal.getInstance(document.getElementById('resetModal')).hide();
+}
+</script>
+{% endblock %}

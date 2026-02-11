@@ -1,6 +1,8 @@
-from flask import render_template, request, jsonify, redirect, url_for, flash, session
+import os
+from flask import render_template, request, jsonify, redirect, url_for, flash, session, current_app
 from models import db, Transaction, Category, ImportHistory
 from utils import parse_csv
+from config import load_config, save_config, get_database_path
 
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -244,3 +246,65 @@ def register_routes(app):
     def api_categories():
         categories = Category.query.order_by(Category.name).all()
         return jsonify([c.to_dict() for c in categories])
+
+    # ==================== SETTINGS ====================
+
+    @app.route('/settings')
+    def settings():
+        config = load_config()
+        db_path = get_database_path()
+        db_exists = os.path.exists(db_path)
+        db_size = os.path.getsize(db_path) if db_exists else 0
+
+        return render_template('settings.html',
+                               config=config,
+                               db_path=db_path,
+                               db_exists=db_exists,
+                               db_size=db_size)
+
+    @app.route('/settings/database', methods=['POST'])
+    def update_database_path():
+        data = request.get_json()
+        new_path = data.get('database_path', '').strip()
+
+        if not new_path:
+            return jsonify({'error': 'Database path is required'}), 400
+
+        # Ensure path ends with .db
+        if not new_path.endswith('.db'):
+            new_path += '.db'
+
+        # Check if parent directory exists or can be created
+        parent_dir = os.path.dirname(new_path)
+        if parent_dir and not os.path.exists(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+            except OSError as e:
+                return jsonify({'error': f'Cannot create directory: {str(e)}'}), 400
+
+        # Save the new config
+        config = load_config()
+        config['database_path'] = new_path
+        save_config(config)
+
+        return jsonify({
+            'success': True,
+            'message': 'Database path updated. Please restart the application for changes to take effect.',
+            'new_path': new_path
+        })
+
+    @app.route('/api/stats')
+    def api_stats():
+        """Get database statistics."""
+        total_transactions = Transaction.query.count()
+        total_categories = Category.query.count()
+        total_imports = ImportHistory.query.count()
+        categorized = Transaction.query.filter(Transaction.category_id.isnot(None)).count()
+
+        return jsonify({
+            'total_transactions': total_transactions,
+            'total_categories': total_categories,
+            'total_imports': total_imports,
+            'categorized': categorized,
+            'uncategorized': total_transactions - categorized
+        })

@@ -29,14 +29,24 @@ def parse_date(date_string):
 def parse_amount(amount_string):
     """Parse amount string, handling different formats."""
     amount_string = amount_string.strip()
-    # Remove currency symbols and spaces
-    amount_string = re.sub(r'[€$£\s]', '', amount_string)
-    # Handle European format (comma as decimal separator)
+    # Remove currency symbols, spaces, and quotes
+    amount_string = re.sub(r'[€$£\s"\']', '', amount_string)
+
+    # Handle formats with both comma and dot
     if ',' in amount_string and '.' in amount_string:
-        # Format like 1.234,56 -> 1234.56
-        amount_string = amount_string.replace('.', '').replace(',', '.')
+        # Determine which is the decimal separator by position
+        last_comma = amount_string.rfind(',')
+        last_dot = amount_string.rfind('.')
+
+        if last_dot > last_comma:
+            # Format like 1,234.56 (US) -> comma is thousands
+            amount_string = amount_string.replace(',', '')
+        else:
+            # Format like 1.234,56 (EU) -> dot is thousands, comma is decimal
+            amount_string = amount_string.replace('.', '').replace(',', '.')
+
     elif ',' in amount_string:
-        # Could be 1234,56 or 1,234.56 - check position
+        # Only comma - could be decimal or thousands
         parts = amount_string.split(',')
         if len(parts) == 2 and len(parts[1]) == 2:
             # Likely decimal comma: 1234,56
@@ -44,6 +54,7 @@ def parse_amount(amount_string):
         else:
             # Likely thousands separator: 1,234
             amount_string = amount_string.replace(',', '')
+
     return float(amount_string)
 
 
@@ -58,12 +69,12 @@ def detect_csv_columns(headers):
     # Date column detection
     date_keywords = ['date', 'fecha', 'datum', 'data']
     for i, h in enumerate(headers_lower):
-        if any(kw in h for kw in date_keywords):
+        if any(kw == h or h.startswith(kw) for kw in date_keywords):
             date_col = i
             break
 
     # Description column detection
-    desc_keywords = ['description', 'desc', 'concept', 'concepto', 'details', 'memo', 'text']
+    desc_keywords = ['description', 'desc', 'concept', 'concepto', 'details', 'memo', 'text', 'movimiento']
     for i, h in enumerate(headers_lower):
         if any(kw in h for kw in desc_keywords):
             desc_col = i
@@ -79,6 +90,19 @@ def detect_csv_columns(headers):
     return date_col, desc_col, amount_col
 
 
+def find_header_row(rows):
+    """Find the row that contains the actual column headers."""
+    date_keywords = ['date', 'fecha', 'datum', 'data']
+
+    for i, row in enumerate(rows):
+        if len(row) >= 3:
+            first_cell = row[0].lower().strip()
+            if any(kw == first_cell or first_cell.startswith(kw) for kw in date_keywords):
+                return i
+
+    return 0  # Default to first row
+
+
 def parse_csv(file_content, filename='upload.csv'):
     """
     Parse CSV content and return list of transaction dictionaries.
@@ -90,9 +114,14 @@ def parse_csv(file_content, filename='upload.csv'):
     errors = []
 
     try:
-        # Decode if bytes
+        # Decode if bytes - try multiple encodings
         if isinstance(file_content, bytes):
-            file_content = file_content.decode('utf-8-sig')  # Handle BOM
+            for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+                try:
+                    file_content = file_content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
 
         # Read CSV
         reader = csv.reader(io.StringIO(file_content))
@@ -101,7 +130,10 @@ def parse_csv(file_content, filename='upload.csv'):
         if len(rows) < 2:
             return [], ["CSV file is empty or has no data rows"]
 
-        headers = rows[0]
+        # Find the actual header row (skip bank info rows)
+        header_idx = find_header_row(rows)
+        headers = rows[header_idx]
+
         date_col, desc_col, amount_col = detect_csv_columns(headers)
 
         # Fallback to positional if detection fails
@@ -112,14 +144,22 @@ def parse_csv(file_content, filename='upload.csv'):
         if amount_col is None:
             amount_col = 2
 
-        # Parse data rows
-        for row_num, row in enumerate(rows[1:], start=2):
+        # Parse data rows (start after header row)
+        data_rows = rows[header_idx + 1:]
+        for row_num, row in enumerate(data_rows, start=header_idx + 2):
             if len(row) < 3:
-                errors.append(f"Row {row_num}: Not enough columns")
+                continue  # Skip short rows silently
+
+            # Skip empty rows
+            if not any(cell.strip() for cell in row):
                 continue
 
             try:
-                date = parse_date(row[date_col])
+                date_str = row[date_col].strip()
+                if not date_str:
+                    continue  # Skip rows without date
+
+                date = parse_date(date_str)
                 description = row[desc_col].strip()
                 amount = parse_amount(row[amount_col])
 

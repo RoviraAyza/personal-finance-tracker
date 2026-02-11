@@ -44,10 +44,6 @@ class Transaction(db.Model):
     import_batch_id = db.Column(db.Integer, db.ForeignKey('import_history.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (
-        db.UniqueConstraint('date', 'description', 'amount', name='unique_transaction'),
-    )
-
     def to_dict(self):
         return {
             'id': self.id,
