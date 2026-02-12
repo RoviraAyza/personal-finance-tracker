@@ -2,127 +2,169 @@ import os
 from flask import render_template, request, jsonify, redirect, url_for, flash, session, current_app
 from models import db, Transaction, Category, ImportHistory
 from utils import parse_csv
-from config import load_config, save_config, get_database_path
+import glob
+from config import load_config, save_config, get_database_path, get_csv_source_folder
 
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+
+def get_category_for_description(description):
+    """Find category based on matching description from existing categorized transactions."""
+    existing = Transaction.query.filter(
+        Transaction.description == description,
+        Transaction.category_id.isnot(None)
+    ).first()
+    return existing.category_id if existing else None
 
 
 def register_routes(app):
 
     @app.route('/')
     def index():
-        total_transactions = Transaction.query.count()
-        uncategorized = Transaction.query.filter_by(category_id=None).count()
-        return render_template('index.html',
-                               total_transactions=total_transactions,
-                               uncategorized=uncategorized)
+        return redirect(url_for('transactions'))
 
-    # ==================== CSV IMPORT ====================
+    # ==================== SYNC FROM FOLDER ====================
 
-    @app.route('/import', methods=['GET'])
-    def import_page():
-        return render_template('import.html')
+    @app.route('/sync', methods=['POST'])
+    def sync_from_folder():
+        """Sync transactions from all CSV files in configured folder."""
+        from datetime import datetime
 
-    @app.route('/import/preview', methods=['POST'])
-    def import_preview():
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+        csv_folder = get_csv_source_folder()
 
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
+        if not csv_folder:
+            return jsonify({'error': 'No CSV folder configured. Go to Settings to set it up.'}), 400
 
-        if not file.filename.endswith('.csv'):
-            return jsonify({'error': 'File must be a CSV'}), 400
+        if not os.path.isdir(csv_folder):
+            return jsonify({'error': f'Folder not found: {csv_folder}'}), 404
 
-        # Check file size
-        file.seek(0, 2)  # Seek to end
-        size = file.tell()
-        file.seek(0)  # Seek back to start
+        # Find all CSV files in folder
+        csv_files = glob.glob(os.path.join(csv_folder, '*.csv'))
 
-        if size > MAX_FILE_SIZE:
-            return jsonify({'error': 'File too large. Maximum size is 5MB'}), 400
+        if not csv_files:
+            return jsonify({'error': 'No CSV files found in the configured folder.'}), 400
 
-        content = file.read()
-        transactions, errors = parse_csv(content, file.filename)
+        total_new = 0
+        total_duplicates = 0
+        files_processed = 0
+        all_errors = []
 
-        # Check for duplicates
-        duplicates = []
-        new_transactions = []
+        for csv_path in csv_files:
+            # Check file size
+            file_size = os.path.getsize(csv_path)
+            if file_size > MAX_FILE_SIZE:
+                all_errors.append(f'{os.path.basename(csv_path)}: File too large (max 5MB)')
+                continue
 
-        for t in transactions:
-            existing = Transaction.query.filter_by(
-                date=t['date'],
-                description=t['description'],
-                amount=t['amount']
-            ).first()
+            try:
+                with open(csv_path, 'rb') as f:
+                    content = f.read()
+            except IOError as e:
+                all_errors.append(f'{os.path.basename(csv_path)}: Cannot read file')
+                continue
 
-            t_dict = {
-                'date': t['date'].isoformat(),
-                'description': t['description'],
-                'amount': t['amount']
-            }
+            # Parse CSV
+            transactions, errors = parse_csv(content, os.path.basename(csv_path))
 
-            if existing:
-                t_dict['duplicate'] = True
-                duplicates.append(t_dict)
-            else:
-                t_dict['duplicate'] = False
-                new_transactions.append(t_dict)
+            if errors:
+                all_errors.extend([f'{os.path.basename(csv_path)}: {e}' for e in errors[:3]])
 
-        # Store in session for confirmation
-        session['pending_import'] = new_transactions
-        session['import_filename'] = file.filename
+            if not transactions:
+                continue
 
-        return jsonify({
-            'transactions': new_transactions,
-            'duplicates': duplicates,
-            'errors': errors,
-            'total': len(transactions),
-            'new_count': len(new_transactions),
-            'duplicate_count': len(duplicates)
-        })
+            # Filter out duplicates
+            new_transactions = []
 
-    @app.route('/import/confirm', methods=['POST'])
-    def import_confirm():
-        pending = session.get('pending_import', [])
-        filename = session.get('import_filename', 'unknown.csv')
+            for t in transactions:
+                existing = Transaction.query.filter_by(
+                    date=t['date'],
+                    description=t['description'],
+                    amount=t['amount']
+                ).first()
 
-        if not pending:
-            return jsonify({'error': 'No pending import found'}), 400
+                if existing:
+                    total_duplicates += 1
+                else:
+                    new_transactions.append(t)
 
-        # Create import history record
-        import_record = ImportHistory(
-            filename=filename,
-            records_imported=len(pending)
-        )
-        db.session.add(import_record)
-        db.session.flush()  # Get the ID
+            if new_transactions:
+                # Create import history record for this file
+                import_record = ImportHistory(
+                    filename=os.path.basename(csv_path),
+                    records_imported=len(new_transactions)
+                )
+                db.session.add(import_record)
+                db.session.flush()
 
-        # Import transactions
-        imported_count = 0
-        for t in pending:
-            from datetime import datetime
-            transaction = Transaction(
-                date=datetime.fromisoformat(t['date']).date(),
-                description=t['description'],
-                amount=t['amount'],
-                import_batch_id=import_record.id
-            )
-            db.session.add(transaction)
-            imported_count += 1
+                # Import new transactions with auto-categorization
+                for t in new_transactions:
+                    # Try to find category from existing transaction with same description
+                    category_id = get_category_for_description(t['description'])
+
+                    transaction = Transaction(
+                        date=t['date'],
+                        description=t['description'],
+                        amount=t['amount'],
+                        category_id=category_id,
+                        import_batch_id=import_record.id
+                    )
+                    db.session.add(transaction)
+
+                total_new += len(new_transactions)
+
+            files_processed += 1
 
         db.session.commit()
 
-        # Clear session
-        session.pop('pending_import', None)
-        session.pop('import_filename', None)
+        # Count how many were auto-categorized
+        auto_categorized = Transaction.query.filter(
+            Transaction.import_batch_id == import_record.id if 'import_record' in dir() else False,
+            Transaction.category_id.isnot(None)
+        ).count() if total_new > 0 else 0
+
+        if total_new == 0:
+            return jsonify({
+                'success': True,
+                'imported': 0,
+                'auto_categorized': 0,
+                'duplicates': total_duplicates,
+                'files_processed': files_processed,
+                'message': f'No new transactions found in {files_processed} files. All transactions already exist.',
+                'errors': all_errors[:5] if all_errors else []
+            })
 
         return jsonify({
             'success': True,
-            'imported': imported_count,
-            'batch_id': import_record.id
+            'imported': total_new,
+            'auto_categorized': auto_categorized,
+            'duplicates': total_duplicates,
+            'files_processed': files_processed,
+            'message': f'Imported {total_new} new transactions from {files_processed} files.',
+            'errors': all_errors[:5] if all_errors else []
+        })
+
+    # ==================== AUTO-CATEGORIZE ====================
+
+    @app.route('/transactions/auto-categorize', methods=['POST'])
+    def auto_categorize():
+        """Auto-categorize uncategorized transactions based on matching descriptions."""
+        uncategorized = Transaction.query.filter_by(category_id=None).all()
+
+        categorized_count = 0
+        for transaction in uncategorized:
+            category_id = get_category_for_description(transaction.description)
+            if category_id:
+                transaction.category_id = category_id
+                categorized_count += 1
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'categorized': categorized_count,
+            'remaining': len(uncategorized) - categorized_count,
+            'message': f'Auto-categorized {categorized_count} transactions.'
         })
 
     # ==================== TRANSACTIONS ====================
@@ -141,10 +183,18 @@ def register_routes(app):
         all_transactions = query.all()
         categories = Category.query.order_by(Category.name).all()
 
+        # Get CSV folder info for sync button
+        csv_folder = get_csv_source_folder()
+        folder_exists = os.path.isdir(csv_folder) if csv_folder else False
+        csv_count = len(glob.glob(os.path.join(csv_folder, '*.csv'))) if folder_exists else 0
+
         return render_template('transactions.html',
                                transactions=all_transactions,
                                categories=categories,
-                               current_filter=filter_type)
+                               current_filter=filter_type,
+                               csv_folder=csv_folder,
+                               folder_exists=folder_exists,
+                               csv_count=csv_count)
 
     @app.route('/transactions/<int:id>/categorize', methods=['POST'])
     def categorize_transaction(id):
@@ -251,46 +301,37 @@ def register_routes(app):
 
     @app.route('/settings')
     def settings():
-        config = load_config()
-        db_path = get_database_path()
-        db_exists = os.path.exists(db_path)
-        db_size = os.path.getsize(db_path) if db_exists else 0
+        csv_folder = get_csv_source_folder()
+        folder_exists = os.path.isdir(csv_folder) if csv_folder else False
+        csv_count = len(glob.glob(os.path.join(csv_folder, '*.csv'))) if folder_exists else 0
 
         return render_template('settings.html',
-                               config=config,
-                               db_path=db_path,
-                               db_exists=db_exists,
-                               db_size=db_size)
+                               csv_folder=csv_folder,
+                               folder_exists=folder_exists,
+                               csv_count=csv_count)
 
-    @app.route('/settings/database', methods=['POST'])
-    def update_database_path():
+    @app.route('/settings/csv-folder', methods=['POST'])
+    def update_csv_folder():
         data = request.get_json()
-        new_path = data.get('database_path', '').strip()
+        new_path = data.get('csv_folder', '').strip()
 
-        if not new_path:
-            return jsonify({'error': 'Database path is required'}), 400
-
-        # Ensure path ends with .db
-        if not new_path.endswith('.db'):
-            new_path += '.db'
-
-        # Check if parent directory exists or can be created
-        parent_dir = os.path.dirname(new_path)
-        if parent_dir and not os.path.exists(parent_dir):
-            try:
-                os.makedirs(parent_dir, exist_ok=True)
-            except OSError as e:
-                return jsonify({'error': f'Cannot create directory: {str(e)}'}), 400
+        # Allow empty path to clear the setting
+        if new_path and not os.path.isdir(new_path):
+            return jsonify({'error': f'Folder not found: {new_path}'}), 400
 
         # Save the new config
         config = load_config()
-        config['database_path'] = new_path
+        config['csv_source_folder'] = new_path
         save_config(config)
+
+        # Count CSV files
+        csv_count = len(glob.glob(os.path.join(new_path, '*.csv'))) if new_path else 0
 
         return jsonify({
             'success': True,
-            'message': 'Database path updated. Please restart the application for changes to take effect.',
-            'new_path': new_path
+            'message': f'CSV folder updated. Found {csv_count} CSV files.' if new_path else 'CSV folder cleared.',
+            'new_path': new_path,
+            'csv_count': csv_count
         })
 
     @app.route('/api/stats')

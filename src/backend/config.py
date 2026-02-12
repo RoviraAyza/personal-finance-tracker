@@ -5,6 +5,7 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), '..', 'config.json')
 
 DEFAULT_CONFIG = {
     'database_path': os.path.join(os.path.dirname(__file__), '..', 'database', 'finance.db'),
+    'csv_source_folder': '',  # Folder containing bank CSV files for auto-import
     'app_name': 'Personal Finance Tracker'
 }
 
@@ -62,3 +63,17 @@ def get_database_uri():
     """Get the SQLAlchemy database URI."""
     db_path = get_database_path()
     return f'sqlite:///{db_path}'
+
+
+def get_csv_source_folder():
+    """Get the configured CSV source folder path."""
+    config = load_config()
+    return config.get('csv_source_folder', '')
+
+
+def set_csv_source_folder(new_path):
+    """Set the CSV source folder path."""
+    config = load_config()
+    config['csv_source_folder'] = new_path
+    save_config(config)
+    return new_path

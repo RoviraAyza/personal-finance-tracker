@@ -40,6 +40,31 @@ body {
     color: #6c757d;
 }
 
+/* Sortable columns */
+.table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.table th.sortable:hover {
+    background-color: #e9ecef;
+}
+
+.table th.sortable.sorted {
+    background-color: #e2e6ea;
+    color: #495057;
+}
+
+.table th .sort-icon {
+    margin-left: 0.25rem;
+    opacity: 0.5;
+}
+
+.table th.sorted .sort-icon {
+    opacity: 1;
+}
+
 /* Category Colors */
 .category-badge {
     display: inline-block;
