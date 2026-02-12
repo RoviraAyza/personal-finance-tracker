@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Personal Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1>Settings</h1>
+        <p class="text-muted">Configure your application settings</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8">
+        <!-- CSV Source Folder Configuration -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Bank CSV Folder</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="csv-folder" class="form-label">CSV Folder Path</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="csv-folder"
+                               value="{{ csv_folder }}" placeholder="e.g., C:\Users\you\Downloads\BankStatements">
+                        <button class="btn btn-primary" type="button" onclick="saveCsvFolder()">
+                            Save
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        Set the folder where you save your bank CSV files.
+                        <br>You can add multiple CSV files over time. The app will auto-detect and import only new transactions.
+                    </div>
+                </div>
+
+                <div class="border rounded p-3 mt-3">
+                    <h6 class="text-muted mb-2">Folder Status</h6>
+                    {% if csv_folder %}
+                        {% if folder_exists %}
+                        <span class="badge bg-success">Folder found</span>
+                        <span class="badge bg-info ms-2">{{ csv_count }} CSV files</span>
+                        <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
+                        {% else %}
+                        <span class="badge bg-warning">Folder not found</span>
+                        <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
+                        {% endif %}
+                    {% else %}
+                    <span class="badge bg-secondary">Not configured</span>
+                    <p class="mb-0 mt-2 small text-muted">Set a folder above to enable auto-sync</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li class="mb-2">
+                        <strong>Multiple CSVs:</strong> You can add multiple CSV files to the folder. The app will read all of them.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Auto-categorize:</strong> Once you categorize a transaction, future transactions with the same description will be auto-categorized.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Duplicates:</strong> The app automatically skips transactions that already exist in the database.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveCsvFolder() {
+    const path = document.getElementById('csv-folder').value.trim();
+
+    fetch('/settings/csv-folder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ csv_folder: path })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload to update status badge
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Failed to save', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error saving settings', 'error');
+    });
+}
+</script>
+{% endblock %}

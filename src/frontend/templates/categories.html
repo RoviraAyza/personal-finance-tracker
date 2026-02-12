@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Categories - Personal Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1>Categories</h1>
+            <p class="text-muted">Manage your spending categories</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+            Add Category
+        </button>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Color</th>
+                            <th>Name</th>
+                            <th class="text-center">Transactions</th>
+                            <th style="width: 150px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categories-table">
+                        {% for category in categories %}
+                        <tr data-id="{{ category.id }}">
+                            <td>
+                                <div class="color-preview" style="background-color: {{ category.color }}; width: 24px; height: 24px; border-radius: 4px;"></div>
+                            </td>
+                            <td>{{ category.name }}</td>
+                            <td class="text-center">{{ category.transaction_count }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="editCategory({{ category.id }}, '{{ category.name }}', '{{ category.color }}')">
+                                    Edit
+                                </button>
+                                {% if category.transaction_count == 0 %}
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                                    Delete
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="category-name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="category-name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="category-color" class="form-label">Color</label>
+                    <input type="color" class="form-control form-control-color" id="category-color" value="#6c757d">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addCategory()">Add Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-category-id">
+                <div class="mb-3">
+                    <label for="edit-category-name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="edit-category-name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="edit-category-color" class="form-label">Color</label>
+                    <input type="color" class="form-control form-control-color" id="edit-category-color">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveCategory()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/categories.js') }}"></script>
+{% endblock %}
