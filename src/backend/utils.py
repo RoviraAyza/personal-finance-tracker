@@ -3,6 +3,11 @@ import io
 import re
 from datetime import datetime
 
+try:
+    import xlrd
+except ImportError:
+    xlrd = None
+
 
 # Supported date formats
 DATE_FORMATS = [
@@ -239,6 +244,168 @@ def parse_csv(file_content, filename='upload.csv'):
 
     except Exception as e:
         errors.append(f"Failed to parse CSV: {str(e)}")
+
+    return transactions, errors
+
+
+def _safe_str(value):
+    """Convert an XLS cell value to a clean string, handling floats that are really ints."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, float):
+        # Concept codes like 12.0 should become "12"
+        if value == int(value):
+            return str(int(value))
+        return str(value)
+    return str(value).strip() or None
+
+
+def _safe_float(value):
+    """Convert an XLS cell to float, returning 0.0 for empty/missing."""
+    if value is None or value == '':
+        return 0.0
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def parse_xls(file_path, filename='upload.xls'):
+    """
+    Parse a CaixaBank XLS file and return list of transaction dictionaries.
+
+    CaixaBank XLS layout (header at row 3, data from row 4):
+      Col 1: Número de cuenta  Col 2: Oficina  Col 3: Divisa
+      Col 4: F. Operación      Col 5: F. Valor
+      Col 6: Ingreso (+)       Col 7: Gasto (-)
+      Col 8: Saldo (+)         Col 9: Saldo (-)
+      Col 10: Concepto común   Col 11: Concepto propio
+      Col 12: Referencia 1     Col 13: Referencia 2
+      Col 14-23: Concepto complementario 1-10
+
+    Returns:
+        tuple: (transactions_list, errors_list)
+    """
+    if xlrd is None:
+        return [], ["xlrd library not installed. Run: pip install xlrd"]
+
+    transactions = []
+    errors = []
+
+    try:
+        workbook = xlrd.open_workbook(file_path)
+        sheet = workbook.sheet_by_index(0)
+
+        if sheet.nrows < 5:
+            return [], ["XLS file has too few rows"]
+
+        # Data starts at row 4 (0-indexed)
+        for row_idx in range(4, sheet.nrows):
+            try:
+                row = [sheet.cell_value(row_idx, c) for c in range(sheet.ncols)]
+
+                # Skip empty rows
+                if not any(str(v).strip() for v in row):
+                    continue
+
+                # Pad row to at least 24 columns
+                while len(row) < 24:
+                    row.append('')
+
+                # Parse dates (col 4 = F. Operación, col 5 = F. Valor)
+                op_date = None
+                raw_date = row[4]
+                if isinstance(raw_date, float) and raw_date > 0:
+                    try:
+                        op_date = xlrd.xldate_as_datetime(raw_date, workbook.datemode).date()
+                    except (ValueError, OverflowError):
+                        pass
+                if op_date is None and raw_date:
+                    try:
+                        op_date = parse_date(str(raw_date).strip())
+                    except ValueError:
+                        pass
+
+                if op_date is None:
+                    continue  # Skip rows without a valid operation date
+
+                value_date = None
+                raw_vdate = row[5]
+                if isinstance(raw_vdate, float) and raw_vdate > 0:
+                    try:
+                        value_date = xlrd.xldate_as_datetime(raw_vdate, workbook.datemode).date()
+                    except (ValueError, OverflowError):
+                        pass
+                if value_date is None and raw_vdate:
+                    try:
+                        value_date = parse_date(str(raw_vdate).strip())
+                    except ValueError:
+                        pass
+
+                # Amount = Ingreso(+) - Gasto(-)
+                income = _safe_float(row[6])
+                expense = _safe_float(row[7])
+                amount = income - expense
+
+                # Balance = Saldo(+) - Saldo(-)
+                bal_pos = _safe_float(row[8])
+                bal_neg = _safe_float(row[9])
+                balance = bal_pos - bal_neg if (bal_pos or bal_neg) else None
+
+                # Account and office
+                account_number = _safe_str(row[1])
+                office = _safe_str(row[2])
+                currency = _safe_str(row[3])
+
+                # Concepts and references
+                common_concept = _safe_str(row[10])
+                bank_concept = _safe_str(row[11])
+                reference_1 = _safe_str(row[12])
+                reference_2 = _safe_str(row[13])
+
+                # Complementary details (cols 14-23)
+                compl = [_safe_str(row[14 + i]) for i in range(10)]
+
+                # Description = compl_1 (merchant name) with fallback to compl_9
+                description = compl[0] or compl[8] or common_concept or 'Sin descripción'
+
+                # Extra details = concatenation of compl_3, compl_5, compl_7
+                extra_parts = [p for p in [compl[2], compl[4], compl[6]] if p]
+                extra_details = ' | '.join(extra_parts) if extra_parts else None
+
+                txn = {
+                    'date': op_date,
+                    'description': description,
+                    'amount': amount,
+                    'value_date': value_date,
+                    'extra_details': extra_details,
+                    'balance': balance,
+                    'account_number': account_number,
+                    'office': office,
+                    'currency': currency,
+                    'common_concept': common_concept,
+                    'bank_concept': bank_concept,
+                    'reference_1': reference_1,
+                    'reference_2': reference_2,
+                    'compl_1': compl[0],
+                    'compl_2': compl[1],
+                    'compl_3': compl[2],
+                    'compl_4': compl[3],
+                    'compl_5': compl[4],
+                    'compl_6': compl[5],
+                    'compl_7': compl[6],
+                    'compl_8': compl[7],
+                    'compl_9': compl[8],
+                    'compl_10': compl[9],
+                }
+
+                transactions.append(txn)
+
+            except Exception as e:
+                errors.append(f"Row {row_idx + 1}: {str(e)}")
+
+    except Exception as e:
+        errors.append(f"Failed to parse XLS: {str(e)}")
 
     return transactions, errors
 

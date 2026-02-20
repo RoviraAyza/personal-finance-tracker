@@ -457,6 +457,105 @@ function initColumnToggle() {
     });
 }
 
+// ==================== TRANSACTION DETAIL MODAL ====================
+
+async function showTransactionDetail(id, event) {
+    // Don't open modal when clicking checkboxes or category selects
+    if (event && event.target) {
+        const tag = event.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'select' || tag === 'option') return;
+        if (event.target.closest('select') || event.target.closest('input')) return;
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('transactionDetailModal'));
+    const body = document.getElementById('transaction-detail-body');
+
+    // Show loading spinner
+    body.innerHTML = '<div class="text-center py-4"><div class="spinner-border" role="status"></div></div>';
+    modal.show();
+
+    try {
+        const response = await fetch(`/api/transactions/${id}`);
+        if (!response.ok) throw new Error('Failed to load transaction');
+        const txn = await response.json();
+        body.innerHTML = buildDetailHTML(txn);
+    } catch (error) {
+        body.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+    }
+}
+
+function buildDetailHTML(txn) {
+    const formatAmount = (val) => {
+        if (val === null || val === undefined) return '';
+        const cls = val < 0 ? 'text-danger' : 'text-success';
+        return `<span class="${cls}"><strong>${parseFloat(val).toFixed(2)} EUR</strong></span>`;
+    };
+
+    const row = (label, value) => {
+        if (value === null || value === undefined || value === '') return '';
+        return `<tr><td class="text-muted" style="width:40%"><strong>${label}</strong></td><td>${value}</td></tr>`;
+    };
+
+    const section = (title, rows) => {
+        const filtered = rows.filter(r => r !== '');
+        if (filtered.length === 0) return '';
+        return `
+            <h6 class="mt-3 mb-2 text-primary">${title}</h6>
+            <table class="table table-sm table-borderless mb-0">
+                <tbody>${filtered.join('')}</tbody>
+            </table>`;
+    };
+
+    const mainInfo = section('Información Principal', [
+        row('Fecha Operación', txn.date),
+        row('Fecha Valor', txn.value_date),
+        row('Descripción', txn.description),
+        row('Importe', formatAmount(txn.amount)),
+        row('Saldo', txn.balance !== null ? `${parseFloat(txn.balance).toFixed(2)} EUR` : null),
+        row('Categoría', txn.category_name
+            ? `<span class="badge" style="background-color:${txn.category_color}">${txn.category_name}</span>`
+            : 'Sin categoría'),
+    ]);
+
+    const accountInfo = section('Datos de Cuenta', [
+        row('Número de cuenta', txn.account_number),
+        row('Oficina', txn.office),
+        row('Divisa', txn.currency),
+    ]);
+
+    const conceptInfo = section('Conceptos y Referencias', [
+        row('Concepto común', txn.common_concept),
+        row('Concepto propio', txn.bank_concept),
+        row('Referencia 1', txn.reference_1),
+        row('Referencia 2', txn.reference_2),
+    ]);
+
+    const complLabels = [
+        'Comercio / Nombre',
+        'Detalle 2',
+        'Detalle 3',
+        'Detalle 4',
+        'Detalle 5',
+        'Detalle 6',
+        'Detalle 7',
+        'Detalle 8',
+        'Detalle 9',
+        'Detalle 10',
+    ];
+    const complRows = [];
+    for (let i = 1; i <= 10; i++) {
+        const val = txn[`compl_${i}`];
+        if (val) complRows.push(row(complLabels[i - 1], val));
+    }
+    const complInfo = section('Detalles Complementarios', complRows);
+
+    const extraInfo = section('Otros', [
+        row('Detalles extra', txn.extra_details),
+    ]);
+
+    return mainInfo + accountInfo + conceptInfo + complInfo + extraInfo;
+}
+
 /**
  * Initialize filter bar on page load
  */

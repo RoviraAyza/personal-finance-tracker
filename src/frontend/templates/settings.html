@@ -15,7 +15,7 @@
         <!-- CSV Source Folder Configuration -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">Bank CSV Folder</h5>
+                <h5 class="mb-0">Bank Data Folder</h5>
             </div>
             <div class="card-body">
                 <div class="mb-3">
@@ -31,8 +31,8 @@
                         </button>
                     </div>
                     <div class="form-text">
-                        Set the folder where you save your bank CSV files.
-                        <br>You can add multiple CSV files over time. The app will auto-detect and import only new transactions.
+                        Set the folder where you save your bank export files (CSV or XLS).
+                        <br>You can add multiple files over time. The app will auto-detect and import only new transactions.
                     </div>
                 </div>
 
@@ -43,7 +43,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <span class="badge bg-success">Folder found</span>
-                                <span class="badge bg-info ms-2">{{ csv_count }} CSV files</span>
+                                <span class="badge bg-info ms-2">{{ file_count }} data files</span>
                                 <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
                             </div>
                             <button class="btn btn-success" onclick="syncFromFolder()" id="sync-btn">
@@ -73,7 +73,7 @@
             <div class="card-body">
                 <ul class="small mb-0">
                     <li class="mb-2">
-                        <strong>Multiple CSVs:</strong> You can add multiple CSV files to the folder. The app will read all of them.
+                        <strong>Multiple files:</strong> You can add multiple CSV/XLS files to the folder. The app will read all of them.
                     </li>
                     <li class="mb-2">
                         <strong>Auto-categorize:</strong> Once you categorize a transaction, future transactions with the same description will be auto-categorized.

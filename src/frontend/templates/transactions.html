@@ -304,7 +304,7 @@
                 </thead>
                 <tbody>
                     {% for transaction in transactions %}
-                    <tr data-id="{{ transaction.id }}">
+                    <tr data-id="{{ transaction.id }}" onclick="showTransactionDetail({{ transaction.id }}, event)" class="clickable-row">
                         <td>
                             <input type="checkbox" class="form-check-input transaction-checkbox"
                                    value="{{ transaction.id }}" onchange="updateSelection()">
@@ -342,6 +342,25 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+<!-- Transaction Detail Modal -->
+<div class="modal fade" id="transactionDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Transacción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="transaction-detail-body">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>

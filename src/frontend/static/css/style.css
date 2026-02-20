@@ -312,3 +312,23 @@ tr.selected {
 .column-toggle-menu .form-check-input {
     margin-top: 0;
 }
+
+/* ==================== CLICKABLE ROWS & DETAIL MODAL ==================== */
+
+tr.clickable-row {
+    cursor: pointer;
+}
+
+tr.clickable-row:hover {
+    background-color: #f0f4ff;
+}
+
+#transactionDetailModal .table-sm td {
+    padding: 0.3rem 0.5rem;
+    vertical-align: top;
+}
+
+#transactionDetailModal h6.text-primary {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.4rem;
+}

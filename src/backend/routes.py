@@ -1,7 +1,7 @@
 import os
 from flask import render_template, request, jsonify, redirect, url_for, flash, session, current_app
 from models import db, Transaction, Category, ImportHistory
-from utils import parse_csv
+from utils import parse_csv, parse_xls
 import glob
 from config import load_config, save_config, get_database_path, get_csv_source_folder
 
@@ -39,36 +39,49 @@ def register_routes(app):
         if not os.path.isdir(csv_folder):
             return jsonify({'error': f'Folder not found: {csv_folder}'}), 404
 
-        # Find all CSV files in folder
+        # Find all CSV and XLS files in folder
         csv_files = glob.glob(os.path.join(csv_folder, '*.csv'))
+        xls_files = glob.glob(os.path.join(csv_folder, '*.xls')) + glob.glob(os.path.join(csv_folder, '*.XLS'))
+        # Deduplicate XLS (case-insensitive match on Windows)
+        seen_xls = set()
+        unique_xls = []
+        for f in xls_files:
+            norm = os.path.normcase(f)
+            if norm not in seen_xls:
+                seen_xls.add(norm)
+                unique_xls.append(f)
+        all_files = csv_files + unique_xls
 
-        if not csv_files:
-            return jsonify({'error': 'No CSV files found in the configured folder.'}), 400
+        if not all_files:
+            return jsonify({'error': 'No CSV/XLS files found in the configured folder.'}), 400
 
         total_new = 0
         total_duplicates = 0
         files_processed = 0
         all_errors = []
 
-        for csv_path in csv_files:
+        for file_path in all_files:
             # Check file size
-            file_size = os.path.getsize(csv_path)
+            file_size = os.path.getsize(file_path)
             if file_size > MAX_FILE_SIZE:
-                all_errors.append(f'{os.path.basename(csv_path)}: File too large (max 5MB)')
+                all_errors.append(f'{os.path.basename(file_path)}: File too large (max 5MB)')
                 continue
 
-            try:
-                with open(csv_path, 'rb') as f:
-                    content = f.read()
-            except IOError as e:
-                all_errors.append(f'{os.path.basename(csv_path)}: Cannot read file')
-                continue
+            ext = os.path.splitext(file_path)[1].lower()
 
-            # Parse CSV
-            transactions, errors = parse_csv(content, os.path.basename(csv_path))
+            if ext == '.xls':
+                transactions, errors = parse_xls(file_path, os.path.basename(file_path))
+            else:
+                try:
+                    with open(file_path, 'rb') as f:
+                        content = f.read()
+                except IOError:
+                    all_errors.append(f'{os.path.basename(file_path)}: Cannot read file')
+                    continue
+                transactions, errors = parse_csv(content, os.path.basename(file_path))
 
             if errors:
-                all_errors.extend([f'{os.path.basename(csv_path)}: {e}' for e in errors[:3]])
+                all_errors.extend([f'{os.path.basename(file_path)}: {e}' for e in errors[:3]])
 
             if not transactions:
                 continue
@@ -97,7 +110,7 @@ def register_routes(app):
             if new_transactions:
                 # Create import history record for this file
                 import_record = ImportHistory(
-                    filename=os.path.basename(csv_path),
+                    filename=os.path.basename(file_path),
                     records_imported=len(new_transactions)
                 )
                 db.session.add(import_record)
@@ -116,6 +129,22 @@ def register_routes(app):
                         extra_details=t.get('extra_details'),
                         balance=t.get('balance'),
                         account_number=t.get('account_number'),
+                        office=t.get('office'),
+                        currency=t.get('currency'),
+                        common_concept=t.get('common_concept'),
+                        bank_concept=t.get('bank_concept'),
+                        reference_1=t.get('reference_1'),
+                        reference_2=t.get('reference_2'),
+                        compl_1=t.get('compl_1'),
+                        compl_2=t.get('compl_2'),
+                        compl_3=t.get('compl_3'),
+                        compl_4=t.get('compl_4'),
+                        compl_5=t.get('compl_5'),
+                        compl_6=t.get('compl_6'),
+                        compl_7=t.get('compl_7'),
+                        compl_8=t.get('compl_8'),
+                        compl_9=t.get('compl_9'),
+                        compl_10=t.get('compl_10'),
                         category_id=category_id,
                         import_batch_id=import_record.id
                     )
@@ -369,6 +398,11 @@ def register_routes(app):
 
     # ==================== API ====================
 
+    @app.route('/api/transactions/<int:id>')
+    def api_transaction_detail(id):
+        transaction = Transaction.query.get_or_404(id)
+        return jsonify(transaction.to_dict())
+
     @app.route('/api/categories')
     def api_categories():
         categories = Category.query.order_by(Category.name).all()
@@ -380,12 +414,19 @@ def register_routes(app):
     def settings():
         csv_folder = get_csv_source_folder()
         folder_exists = os.path.isdir(csv_folder) if csv_folder else False
-        csv_count = len(glob.glob(os.path.join(csv_folder, '*.csv'))) if folder_exists else 0
+        file_count = 0
+        if folder_exists:
+            csv_files = glob.glob(os.path.join(csv_folder, '*.csv'))
+            xls_files = glob.glob(os.path.join(csv_folder, '*.xls')) + glob.glob(os.path.join(csv_folder, '*.XLS'))
+            seen = set()
+            for f in xls_files:
+                seen.add(os.path.normcase(f))
+            file_count = len(csv_files) + len(seen)
 
         return render_template('settings.html',
                                csv_folder=csv_folder,
                                folder_exists=folder_exists,
-                               csv_count=csv_count)
+                               file_count=file_count)
 
     @app.route('/settings/csv-folder', methods=['POST'])
     def update_csv_folder():
@@ -401,14 +442,21 @@ def register_routes(app):
         config['csv_source_folder'] = new_path
         save_config(config)
 
-        # Count CSV files
-        csv_count = len(glob.glob(os.path.join(new_path, '*.csv'))) if new_path else 0
+        # Count data files (CSV + XLS)
+        file_count = 0
+        if new_path:
+            csv_files = glob.glob(os.path.join(new_path, '*.csv'))
+            xls_files = glob.glob(os.path.join(new_path, '*.xls')) + glob.glob(os.path.join(new_path, '*.XLS'))
+            seen = set()
+            for f in xls_files:
+                seen.add(os.path.normcase(f))
+            file_count = len(csv_files) + len(seen)
 
         return jsonify({
             'success': True,
-            'message': f'CSV folder updated. Found {csv_count} CSV files.' if new_path else 'CSV folder cleared.',
+            'message': f'Folder updated. Found {file_count} data files (CSV/XLS).' if new_path else 'Folder cleared.',
             'new_path': new_path,
-            'csv_count': csv_count
+            'file_count': file_count
         })
 
     @app.route('/settings/browse-folder', methods=['POST'])
