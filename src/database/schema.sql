@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     date DATE NOT NULL,
     description TEXT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
+    value_date DATE,
+    extra_details TEXT,
+    balance DECIMAL(10,2),
+    account_number TEXT,
     category_id INTEGER,
     import_batch_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -33,18 +37,20 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_import_batch ON transactions(import_batch_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_number);
 
--- Unique constraint for duplicate detection
-CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_unique
-ON transactions(date, description, amount);
+-- Composite index for duplicate detection (not unique — real bank data can have
+-- identical date/description/amount entries on the same day)
+CREATE INDEX IF NOT EXISTS idx_transactions_dup_check
+ON transactions(date, description, amount, account_number);
 
 -- Default categories
 INSERT OR IGNORE INTO categories (name, color) VALUES
-    ('Groceries', '#28a745'),
-    ('Dining', '#fd7e14'),
-    ('Transport', '#007bff'),
-    ('Utilities', '#6c757d'),
-    ('Entertainment', '#e83e8c'),
-    ('Healthcare', '#dc3545'),
-    ('Shopping', '#6f42c1'),
-    ('Other', '#17a2b8');
+    ('Supermercado', '#28a745'),
+    ('Restaurantes', '#fd7e14'),
+    ('Transporte', '#007bff'),
+    ('Suministros', '#6c757d'),
+    ('Ocio', '#e83e8c'),
+    ('Salud', '#dc3545'),
+    ('Compras', '#6f42c1'),
+    ('Otros', '#17a2b8');

@@ -77,11 +77,17 @@ def register_routes(app):
             new_transactions = []
 
             for t in transactions:
-                existing = Transaction.query.filter_by(
-                    date=t['date'],
-                    description=t['description'],
-                    amount=t['amount']
-                ).first()
+                dup_filter = {
+                    'date': t['date'],
+                    'description': t['description'],
+                    'amount': t['amount'],
+                }
+                if t.get('account_number'):
+                    dup_filter['account_number'] = t['account_number']
+                if t.get('balance') is not None:
+                    dup_filter['balance'] = t['balance']
+
+                existing = Transaction.query.filter_by(**dup_filter).first()
 
                 if existing:
                     total_duplicates += 1
@@ -106,6 +112,10 @@ def register_routes(app):
                         date=t['date'],
                         description=t['description'],
                         amount=t['amount'],
+                        value_date=t.get('value_date'),
+                        extra_details=t.get('extra_details'),
+                        balance=t.get('balance'),
+                        account_number=t.get('account_number'),
                         category_id=category_id,
                         import_batch_id=import_record.id
                     )
@@ -180,6 +190,7 @@ def register_routes(app):
         amount_min = request.args.get('amount_min', '').strip()
         amount_max = request.args.get('amount_max', '').strip()
         category_ids = request.args.getlist('category')
+        account = request.args.get('account', '').strip()
 
         query = Transaction.query.order_by(Transaction.date.desc())
 
@@ -217,6 +228,10 @@ def register_routes(app):
             except ValueError:
                 pass
 
+        # Apply account filter
+        if account:
+            query = query.filter(Transaction.account_number == account)
+
         # Apply category filter (multiple selection)
         if category_ids:
             try:
@@ -243,6 +258,14 @@ def register_routes(app):
             active_filters['amount_max'] = amount_max
         if category_ids:
             active_filters['categories'] = category_ids
+        if account:
+            active_filters['account'] = account
+
+        # Get distinct account numbers for filter dropdown
+        account_numbers = [row[0] for row in
+                          db.session.query(Transaction.account_number)
+                          .filter(Transaction.account_number.isnot(None))
+                          .distinct().all()]
 
         # Get CSV folder info for sync button
         csv_folder = get_csv_source_folder()
@@ -253,6 +276,7 @@ def register_routes(app):
                                transactions=all_transactions,
                                categories=categories,
                                active_filters=active_filters,
+                               account_numbers=account_numbers,
                                csv_folder=csv_folder,
                                folder_exists=folder_exists,
                                csv_count=csv_count)

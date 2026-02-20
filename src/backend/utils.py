@@ -58,26 +58,51 @@ def parse_amount(amount_string):
     return float(amount_string)
 
 
+def extract_account_number(rows):
+    """Extract IBAN account number from CSV metadata rows (before header)."""
+    iban_pattern = re.compile(r'(ES\d{2}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4})')
+    for row in rows:
+        for cell in row:
+            match = iban_pattern.search(cell)
+            if match:
+                # Normalize: remove spaces
+                return match.group(1).replace(' ', '')
+    return None
+
+
 def detect_csv_columns(headers):
-    """Detect which columns contain date, description, and amount."""
+    """Detect which columns contain date, description, amount, and optional fields."""
     headers_lower = [h.lower().strip() for h in headers]
 
     date_col = None
     desc_col = None
     amount_col = None
+    value_date_col = None
+    extra_details_col = None
+    balance_col = None
 
-    # Date column detection
+    # Date column detection (first date-like column that is NOT "fecha valor")
     date_keywords = ['date', 'fecha', 'datum', 'data']
+    value_date_keywords = ['fecha valor', 'value date', 'valor']
     for i, h in enumerate(headers_lower):
-        if any(kw == h or h.startswith(kw) for kw in date_keywords):
-            date_col = i
-            break
+        if any(kw == h or h.startswith(kw) for kw in value_date_keywords):
+            value_date_col = i
+        elif any(kw == h or h.startswith(kw) for kw in date_keywords):
+            if date_col is None:
+                date_col = i
 
     # Description column detection
     desc_keywords = ['description', 'desc', 'concept', 'concepto', 'details', 'memo', 'text', 'movimiento']
     for i, h in enumerate(headers_lower):
         if any(kw in h for kw in desc_keywords):
             desc_col = i
+            break
+
+    # Extra details column detection
+    extra_keywords = ['m\u00e1s datos', 'mas datos', 'extra', 'additional', 'más datos']
+    for i, h in enumerate(headers_lower):
+        if any(kw in h for kw in extra_keywords):
+            extra_details_col = i
             break
 
     # Amount column detection
@@ -87,7 +112,14 @@ def detect_csv_columns(headers):
             amount_col = i
             break
 
-    return date_col, desc_col, amount_col
+    # Balance column detection
+    balance_keywords = ['balance', 'saldo', 'disponible']
+    for i, h in enumerate(headers_lower):
+        if any(kw in h for kw in balance_keywords):
+            balance_col = i
+            break
+
+    return date_col, desc_col, amount_col, value_date_col, extra_details_col, balance_col
 
 
 def find_header_row(rows):
@@ -134,7 +166,10 @@ def parse_csv(file_content, filename='upload.csv'):
         header_idx = find_header_row(rows)
         headers = rows[header_idx]
 
-        date_col, desc_col, amount_col = detect_csv_columns(headers)
+        # Extract account number from metadata rows before header
+        account_number = extract_account_number(rows[:header_idx])
+
+        date_col, desc_col, amount_col, value_date_col, extra_details_col, balance_col = detect_csv_columns(headers)
 
         # Fallback to positional if detection fails
         if date_col is None:
@@ -167,11 +202,36 @@ def parse_csv(file_content, filename='upload.csv'):
                     errors.append(f"Row {row_num}: Empty description")
                     continue
 
-                transactions.append({
+                txn = {
                     'date': date,
                     'description': description,
-                    'amount': amount
-                })
+                    'amount': amount,
+                    'account_number': account_number,
+                }
+
+                # Optional fields
+                if value_date_col is not None and value_date_col < len(row) and row[value_date_col].strip():
+                    try:
+                        txn['value_date'] = parse_date(row[value_date_col])
+                    except ValueError:
+                        txn['value_date'] = None
+                else:
+                    txn['value_date'] = None
+
+                if extra_details_col is not None and extra_details_col < len(row):
+                    txn['extra_details'] = row[extra_details_col].strip() or None
+                else:
+                    txn['extra_details'] = None
+
+                if balance_col is not None and balance_col < len(row) and row[balance_col].strip():
+                    try:
+                        txn['balance'] = parse_amount(row[balance_col])
+                    except ValueError:
+                        txn['balance'] = None
+                else:
+                    txn['balance'] = None
+
+                transactions.append(txn)
             except ValueError as e:
                 errors.append(f"Row {row_num}: {str(e)}")
             except IndexError:

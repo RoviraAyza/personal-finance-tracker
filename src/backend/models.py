@@ -40,6 +40,10 @@ class Transaction(db.Model):
     date = db.Column(db.Date, nullable=False)
     description = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Float, nullable=False)
+    value_date = db.Column(db.Date, nullable=True)
+    extra_details = db.Column(db.String(300), nullable=True)
+    balance = db.Column(db.Float, nullable=True)
+    account_number = db.Column(db.String(34), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     import_batch_id = db.Column(db.Integer, db.ForeignKey('import_history.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -50,6 +54,10 @@ class Transaction(db.Model):
             'date': self.date.isoformat(),
             'description': self.description,
             'amount': self.amount,
+            'value_date': self.value_date.isoformat() if self.value_date else None,
+            'extra_details': self.extra_details,
+            'balance': self.balance,
+            'account_number': self.account_number,
             'category_id': self.category_id,
             'category_name': self.category.name if self.category else None,
             'category_color': self.category.color if self.category else None

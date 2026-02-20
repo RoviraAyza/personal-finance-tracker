@@ -31,25 +31,40 @@ function sortTable(column) {
         }
     });
 
+    // Column index mapping: 0=checkbox, 1=date, 2=value_date, 3=description, 4=extra_details, 5=amount, 6=balance, 7=account, 8=category
+    const colIndex = {
+        date: 1,
+        value_date: 2,
+        description: 3,
+        amount: 5,
+        balance: 6,
+    };
+
     // Sort rows
     rows.sort((a, b) => {
         let aVal, bVal;
+        const idx = colIndex[column];
 
         switch (column) {
             case 'date':
-                // Parse date from DD/MM/YYYY format
-                const aDate = a.cells[1].textContent.split('/').reverse().join('-');
-                const bDate = b.cells[1].textContent.split('/').reverse().join('-');
-                aVal = new Date(aDate);
-                bVal = new Date(bDate);
+            case 'value_date':
+                const aDateStr = a.cells[idx].textContent.trim();
+                const bDateStr = b.cells[idx].textContent.trim();
+                if (!aDateStr) return 1;
+                if (!bDateStr) return -1;
+                aVal = new Date(aDateStr.split('/').reverse().join('-'));
+                bVal = new Date(bDateStr.split('/').reverse().join('-'));
                 break;
             case 'description':
-                aVal = a.cells[2].textContent.toLowerCase();
-                bVal = b.cells[2].textContent.toLowerCase();
+                aVal = a.cells[idx].textContent.toLowerCase();
+                bVal = b.cells[idx].textContent.toLowerCase();
                 break;
             case 'amount':
-                aVal = parseFloat(a.cells[3].textContent.replace(/[^\d.-]/g, ''));
-                bVal = parseFloat(b.cells[3].textContent.replace(/[^\d.-]/g, ''));
+            case 'balance':
+                const aText = a.cells[idx].textContent.replace(/[^\d.-]/g, '');
+                const bText = b.cells[idx].textContent.replace(/[^\d.-]/g, '');
+                aVal = aText ? parseFloat(aText) : 0;
+                bVal = bText ? parseFloat(bText) : 0;
                 break;
             default:
                 return 0;

@@ -43,14 +43,14 @@ def seed_categories():
     from models import Category, db
 
     default_categories = [
-        ('Groceries', '#28a745'),
-        ('Dining', '#fd7e14'),
-        ('Transport', '#007bff'),
-        ('Utilities', '#6c757d'),
-        ('Entertainment', '#e83e8c'),
-        ('Healthcare', '#dc3545'),
-        ('Shopping', '#6f42c1'),
-        ('Other', '#17a2b8'),
+        ('Supermercado', '#28a745'),
+        ('Restaurantes', '#fd7e14'),
+        ('Transporte', '#007bff'),
+        ('Suministros', '#6c757d'),
+        ('Ocio', '#e83e8c'),
+        ('Salud', '#dc3545'),
+        ('Compras', '#6f42c1'),
+        ('Otros', '#17a2b8'),
     ]
 
     for name, color in default_categories:

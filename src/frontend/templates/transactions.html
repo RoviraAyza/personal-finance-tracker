@@ -93,9 +93,22 @@
                             </div>
                         </div>
 
-                        <!-- Second Row: Category Multi-Select Dropdown -->
-                        {% if categories %}
+                        <!-- Second Row: Category + Account filters -->
                         <div class="row g-3 mt-1">
+                            {% if account_numbers %}
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">Account</label>
+                                <select name="account" class="form-select form-select-sm">
+                                    <option value="">All accounts</option>
+                                    {% for acct in account_numbers %}
+                                    <option value="{{ acct }}" {% if request.args.get('account') == acct %}selected{% endif %}>
+                                        ...{{ acct[-4:] }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% endif %}
+                        {% if categories %}
                             <div class="col-md-4">
                                 <label class="form-label small text-muted">Categories</label>
                                 <div class="dropdown category-dropdown">
@@ -131,8 +144,8 @@
                                     </ul>
                                 </div>
                             </div>
-                        </div>
                         {% endif %}
+                        </div>
                     </div>
                 </form>
 
@@ -171,6 +184,13 @@
                     <span class="badge filter-chip">
                         Max: {{ active_filters.amount_max }} EUR
                         <button type="button" class="btn-close" onclick="removeFilter('amount_max')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% if active_filters.get('account') %}
+                    <span class="badge filter-chip">
+                        Account: ...{{ active_filters.account[-4:] }}
+                        <button type="button" class="btn-close" onclick="removeFilter('account')"></button>
                     </span>
                     {% endif %}
 
@@ -234,12 +254,20 @@
                         <th class="sortable" data-sort="date" onclick="sortTable('date')">
                             Date <span class="sort-icon">↕</span>
                         </th>
+                        <th class="sortable" data-sort="value_date" onclick="sortTable('value_date')">
+                            Value Date <span class="sort-icon">↕</span>
+                        </th>
                         <th class="sortable" data-sort="description" onclick="sortTable('description')">
                             Description <span class="sort-icon">↕</span>
                         </th>
+                        <th>Extra Details</th>
                         <th class="sortable text-end" data-sort="amount" onclick="sortTable('amount')">
                             Amount <span class="sort-icon">↕</span>
                         </th>
+                        <th class="sortable text-end" data-sort="balance" onclick="sortTable('balance')">
+                            Balance <span class="sort-icon">↕</span>
+                        </th>
+                        <th>Account</th>
                         <th style="width: 200px;">Category</th>
                     </tr>
                 </thead>
@@ -251,10 +279,14 @@
                                    value="{{ transaction.id }}" onchange="updateSelection()">
                         </td>
                         <td>{{ transaction.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ transaction.value_date.strftime('%d/%m/%Y') if transaction.value_date else '' }}</td>
                         <td>{{ transaction.description }}</td>
+                        <td class="text-muted small">{{ transaction.extra_details or '' }}</td>
                         <td class="text-end {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
                             {{ "%.2f"|format(transaction.amount) }} EUR
                         </td>
+                        <td class="text-end">{{ "%.2f"|format(transaction.balance) if transaction.balance is not none else '' }}</td>
+                        <td class="text-muted small">{{ ('...' + transaction.account_number[-4:]) if transaction.account_number else '' }}</td>
                         <td>
                             <select class="form-select form-select-sm category-select"
                                     data-transaction-id="{{ transaction.id }}"
@@ -272,7 +304,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-5">
+                        <td colspan="9" class="text-center text-muted py-5">
                             No transactions found.
                             <a href="{{ url_for('settings') }}">Configure your bank folder</a> and sync to get started.
                         </td>

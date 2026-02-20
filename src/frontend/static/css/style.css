@@ -271,3 +271,18 @@ tr.selected {
         padding: 0.25rem 0.5rem;
     }
 }
+
+/* Ensure table scrolls horizontally on smaller screens */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table td, .table th {
+    white-space: nowrap;
+}
+
+.table td:nth-child(4), .table td:nth-child(5) {
+    /* description and extra_details can wrap */
+    white-space: normal;
+    max-width: 250px;
+}
