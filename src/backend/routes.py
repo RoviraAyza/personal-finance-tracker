@@ -267,19 +267,11 @@ def register_routes(app):
                           .filter(Transaction.account_number.isnot(None))
                           .distinct().all()]
 
-        # Get CSV folder info for sync button
-        csv_folder = get_csv_source_folder()
-        folder_exists = os.path.isdir(csv_folder) if csv_folder else False
-        csv_count = len(glob.glob(os.path.join(csv_folder, '*.csv'))) if folder_exists else 0
-
         return render_template('transactions.html',
                                transactions=all_transactions,
                                categories=categories,
                                active_filters=active_filters,
-                               account_numbers=account_numbers,
-                               csv_folder=csv_folder,
-                               folder_exists=folder_exists,
-                               csv_count=csv_count)
+                               account_numbers=account_numbers)
 
     @app.route('/transactions/<int:id>/categorize', methods=['POST'])
     def categorize_transaction(id):

@@ -40,9 +40,17 @@
                     <h6 class="text-muted mb-2">Folder Status</h6>
                     {% if csv_folder %}
                         {% if folder_exists %}
-                        <span class="badge bg-success">Folder found</span>
-                        <span class="badge bg-info ms-2">{{ csv_count }} CSV files</span>
-                        <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-success">Folder found</span>
+                                <span class="badge bg-info ms-2">{{ csv_count }} CSV files</span>
+                                <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
+                            </div>
+                            <button class="btn btn-success" onclick="syncFromFolder()" id="sync-btn">
+                                <span id="sync-text">Sync from Folder</span>
+                                <span id="sync-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
+                        </div>
                         {% else %}
                         <span class="badge bg-warning">Folder not found</span>
                         <p class="mb-0 mt-2 small text-muted">{{ csv_folder }}</p>
@@ -79,6 +87,23 @@
     </div>
 </div>
 
+<!-- Sync Result Modal -->
+<div class="modal fade" id="syncResultModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sync Complete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="sync-result-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -96,6 +121,70 @@ function browseFolder() {
     })
     .catch(error => {
         showToast('Could not open folder picker', 'error');
+    });
+}
+
+function syncFromFolder() {
+    const btn = document.getElementById('sync-btn');
+    const text = document.getElementById('sync-text');
+    const spinner = document.getElementById('sync-spinner');
+
+    btn.disabled = true;
+    text.textContent = 'Syncing...';
+    spinner.classList.remove('d-none');
+
+    fetch('/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        text.textContent = 'Sync from Folder';
+        spinner.classList.add('d-none');
+
+        if (data.success) {
+            let resultHtml = '';
+            if (data.imported > 0) {
+                const autoCatText = data.auto_categorized > 0
+                    ? `<p class="text-success mb-1"><strong>${data.auto_categorized}</strong> auto-categorized</p>`
+                    : '';
+                resultHtml = `
+                    <div class="text-center">
+                        <div class="text-success mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                            </svg>
+                        </div>
+                        <h4>${data.imported} new transactions imported!</h4>
+                        ${autoCatText}
+                        <p class="text-muted">From ${data.files_processed} files (${data.duplicates} duplicates skipped)</p>
+                    </div>
+                `;
+            } else {
+                resultHtml = `
+                    <div class="text-center">
+                        <div class="text-info mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                            </svg>
+                        </div>
+                        <h4>No new transactions</h4>
+                        <p class="text-muted">Checked ${data.files_processed} files. All ${data.duplicates} transactions already exist.</p>
+                    </div>
+                `;
+            }
+            document.getElementById('sync-result-body').innerHTML = resultHtml;
+            new bootstrap.Modal(document.getElementById('syncResultModal')).show();
+        } else {
+            showToast(data.error || 'Sync failed', 'error');
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        text.textContent = 'Sync from Folder';
+        spinner.classList.add('d-none');
+        showToast('Error during sync', 'error');
     });
 }
 
