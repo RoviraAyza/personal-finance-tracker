@@ -23,6 +23,9 @@
                     <div class="input-group">
                         <input type="text" class="form-control" id="csv-folder"
                                value="{{ csv_folder }}" placeholder="e.g., C:\Users\you\Downloads\BankStatements">
+                        <button class="btn btn-outline-secondary" type="button" onclick="browseFolder()">
+                            Browse
+                        </button>
                         <button class="btn btn-primary" type="button" onclick="saveCsvFolder()">
                             Save
                         </button>
@@ -80,6 +83,22 @@
 
 {% block scripts %}
 <script>
+function browseFolder() {
+    fetch('/settings/browse-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.path) {
+            document.getElementById('csv-folder').value = data.path;
+        }
+    })
+    .catch(error => {
+        showToast('Could not open folder picker', 'error');
+    });
+}
+
 function saveCsvFolder() {
     const path = document.getElementById('csv-folder').value.trim();
 

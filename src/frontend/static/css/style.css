@@ -281,8 +281,34 @@ tr.selected {
     white-space: nowrap;
 }
 
-.table td:nth-child(4), .table td:nth-child(5) {
+.table td[data-col="description"], .table td[data-col="extra_details"] {
     /* description and extra_details can wrap */
     white-space: normal;
     max-width: 250px;
+}
+
+/* ==================== COLUMN VISIBILITY TOGGLE ==================== */
+
+.col-hidden {
+    display: none !important;
+}
+
+.column-toggle-menu {
+    min-width: 180px;
+}
+
+.column-toggle-menu .dropdown-item {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 1rem;
+    font-size: 0.875rem;
+}
+
+.column-toggle-menu .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.column-toggle-menu .form-check-input {
+    margin-top: 0;
 }

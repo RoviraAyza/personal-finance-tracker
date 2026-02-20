@@ -419,6 +419,33 @@ def register_routes(app):
             'csv_count': csv_count
         })
 
+    @app.route('/settings/browse-folder', methods=['POST'])
+    def browse_folder():
+        """Open a native OS folder picker dialog and return the selected path."""
+        import threading
+
+        result = {'path': None}
+
+        def pick_folder():
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            folder = filedialog.askdirectory(title='Select Bank CSV Folder')
+            root.destroy()
+            result['path'] = folder
+
+        # tkinter must run on its own thread to avoid blocking Flask
+        thread = threading.Thread(target=pick_folder)
+        thread.start()
+        thread.join(timeout=120)
+
+        if result['path']:
+            return jsonify({'success': True, 'path': result['path']})
+        else:
+            return jsonify({'success': False, 'path': ''})
+
     @app.route('/api/stats')
     def api_stats():
         """Get database statistics."""

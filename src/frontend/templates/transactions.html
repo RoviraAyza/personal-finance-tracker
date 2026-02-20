@@ -209,16 +209,63 @@
     </div>
 </div>
 
-<!-- Transaction count and Auto-categorize -->
+<!-- Transaction count, Column Toggle, and Auto-categorize -->
 <div class="row mt-3">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <span class="text-muted">
             <strong>{{ transactions|length }}</strong> transactions
         </span>
-        <button class="btn btn-outline-primary btn-sm" onclick="autoCategorize()" id="auto-cat-btn">
-            <span id="auto-cat-text">Auto-Categorize</span>
-            <span id="auto-cat-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Column Visibility Toggle -->
+            <div class="dropdown" id="column-toggle-dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    &#9881; Columns
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end column-toggle-menu">
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="description" checked>
+                            Description
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="extra_details">
+                            Extra Details
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="amount" checked>
+                            Amount
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="balance">
+                            Balance
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="account">
+                            Account
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item">
+                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="category" checked>
+                            Category
+                        </label>
+                    </li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="autoCategorize()" id="auto-cat-btn">
+                <span id="auto-cat-text">Auto-Categorize</span>
+                <span id="auto-cat-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -254,21 +301,18 @@
                         <th class="sortable" data-sort="date" onclick="sortTable('date')">
                             Date <span class="sort-icon">↕</span>
                         </th>
-                        <th class="sortable" data-sort="value_date" onclick="sortTable('value_date')">
-                            Value Date <span class="sort-icon">↕</span>
-                        </th>
-                        <th class="sortable" data-sort="description" onclick="sortTable('description')">
+                        <th class="sortable" data-sort="description" data-col="description" onclick="sortTable('description')">
                             Description <span class="sort-icon">↕</span>
                         </th>
-                        <th>Extra Details</th>
-                        <th class="sortable text-end" data-sort="amount" onclick="sortTable('amount')">
+                        <th data-col="extra_details">Extra Details</th>
+                        <th class="sortable text-end" data-sort="amount" data-col="amount" onclick="sortTable('amount')">
                             Amount <span class="sort-icon">↕</span>
                         </th>
-                        <th class="sortable text-end" data-sort="balance" onclick="sortTable('balance')">
+                        <th class="sortable text-end" data-sort="balance" data-col="balance" onclick="sortTable('balance')">
                             Balance <span class="sort-icon">↕</span>
                         </th>
-                        <th>Account</th>
-                        <th style="width: 200px;">Category</th>
+                        <th data-col="account">Account</th>
+                        <th style="width: 200px;" data-col="category">Category</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -279,15 +323,14 @@
                                    value="{{ transaction.id }}" onchange="updateSelection()">
                         </td>
                         <td>{{ transaction.date.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ transaction.value_date.strftime('%d/%m/%Y') if transaction.value_date else '' }}</td>
-                        <td>{{ transaction.description }}</td>
-                        <td class="text-muted small">{{ transaction.extra_details or '' }}</td>
-                        <td class="text-end {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                        <td data-col="description">{{ transaction.description }}</td>
+                        <td data-col="extra_details" class="text-muted small">{{ transaction.extra_details or '' }}</td>
+                        <td data-col="amount" class="text-end {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
                             {{ "%.2f"|format(transaction.amount) }} EUR
                         </td>
-                        <td class="text-end">{{ "%.2f"|format(transaction.balance) if transaction.balance is not none else '' }}</td>
-                        <td class="text-muted small">{{ ('...' + transaction.account_number[-4:]) if transaction.account_number else '' }}</td>
-                        <td>
+                        <td data-col="balance" class="text-end">{{ "%.2f"|format(transaction.balance) if transaction.balance is not none else '' }}</td>
+                        <td data-col="account" class="text-muted small">{{ ('...' + transaction.account_number[-4:]) if transaction.account_number else '' }}</td>
+                        <td data-col="category">
                             <select class="form-select form-select-sm category-select"
                                     data-transaction-id="{{ transaction.id }}"
                                     onchange="categorizeTransaction(this)">
@@ -304,7 +347,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="8" class="text-center text-muted py-5">
                             No transactions found.
                             <a href="{{ url_for('settings') }}">Configure your bank folder</a> and sync to get started.
                         </td>

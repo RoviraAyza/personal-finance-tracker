@@ -31,23 +31,27 @@ function sortTable(column) {
         }
     });
 
-    // Column index mapping: 0=checkbox, 1=date, 2=value_date, 3=description, 4=extra_details, 5=amount, 6=balance, 7=account, 8=category
-    const colIndex = {
-        date: 1,
-        value_date: 2,
-        description: 3,
-        amount: 5,
-        balance: 6,
-    };
+    // Find column index dynamically by scanning header cells for data-sort or data-col
+    const headerRow = document.querySelector('.table thead tr');
+    const headers = Array.from(headerRow.cells);
+    let colIdx = -1;
+
+    if (column === 'date') {
+        // Date column is always the second visible cell (index 1, after checkbox)
+        colIdx = headers.findIndex(th => th.dataset.sort === 'date');
+    } else {
+        colIdx = headers.findIndex(th => th.dataset.sort === column);
+    }
+
+    if (colIdx === -1) return;
 
     // Sort rows
     rows.sort((a, b) => {
         let aVal, bVal;
-        const idx = colIndex[column];
+        const idx = colIdx;
 
         switch (column) {
             case 'date':
-            case 'value_date':
                 const aDateStr = a.cells[idx].textContent.trim();
                 const bDateStr = b.cells[idx].textContent.trim();
                 if (!aDateStr) return 1;
@@ -391,6 +395,68 @@ function updateCategoryLabel() {
     }
 }
 
+// ==================== COLUMN VISIBILITY ====================
+
+const COLUMN_VISIBILITY_KEY = 'columnVisibility';
+const DEFAULT_VISIBILITY = {
+    description: true,
+    extra_details: false,
+    amount: true,
+    balance: false,
+    account: false,
+    category: true
+};
+
+function getColumnVisibility() {
+    try {
+        const saved = localStorage.getItem(COLUMN_VISIBILITY_KEY);
+        if (saved) {
+            return { ...DEFAULT_VISIBILITY, ...JSON.parse(saved) };
+        }
+    } catch (e) {
+        // ignore parse errors
+    }
+    return { ...DEFAULT_VISIBILITY };
+}
+
+function saveColumnVisibility(visibility) {
+    localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(visibility));
+}
+
+function applyColumnVisibility(visibility) {
+    for (const [col, visible] of Object.entries(visibility)) {
+        const cells = document.querySelectorAll(`[data-col="${col}"]`);
+        cells.forEach(cell => {
+            cell.classList.toggle('col-hidden', !visible);
+        });
+
+        // Sync the dropdown checkbox
+        const checkbox = document.querySelector(`[data-toggle-col="${col}"]`);
+        if (checkbox) {
+            checkbox.checked = visible;
+        }
+    }
+}
+
+function toggleColumn(colName) {
+    const visibility = getColumnVisibility();
+    visibility[colName] = !visibility[colName];
+    saveColumnVisibility(visibility);
+    applyColumnVisibility(visibility);
+}
+
+function initColumnToggle() {
+    const visibility = getColumnVisibility();
+    applyColumnVisibility(visibility);
+
+    // Bind change events on dropdown checkboxes
+    document.querySelectorAll('[data-toggle-col]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            toggleColumn(this.dataset.toggleCol);
+        });
+    });
+}
+
 /**
  * Initialize filter bar on page load
  */
@@ -398,4 +464,5 @@ document.addEventListener('DOMContentLoaded', function() {
     updateFilterUI();
     initFilterToggle();
     updateCategoryLabel();
+    initColumnToggle();
 });
