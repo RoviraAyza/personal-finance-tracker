@@ -209,3 +209,4 @@ __marimo__/
 # Project local files
 src/config.json
 *.db
+Movimientos_cuenta_*.csv
