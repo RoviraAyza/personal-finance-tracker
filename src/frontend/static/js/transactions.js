@@ -243,3 +243,144 @@ async function bulkCategorize() {
         showToast(error.message, 'error');
     }
 }
+
+// ==================== FILTER BAR ====================
+
+/**
+ * Get current URL parameters as an object
+ */
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const result = {};
+    for (const [key, value] of params.entries()) {
+        if (result[key]) {
+            // Handle multiple values (like category)
+            if (Array.isArray(result[key])) {
+                result[key].push(value);
+            } else {
+                result[key] = [result[key], value];
+            }
+        } else {
+            result[key] = value;
+        }
+    }
+    return result;
+}
+
+/**
+ * Build URL with given parameters
+ */
+function buildUrl(params) {
+    const url = new URL(window.location.pathname, window.location.origin);
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            value.forEach(v => url.searchParams.append(key, v));
+        } else if (value !== null && value !== undefined && value !== '') {
+            url.searchParams.set(key, value);
+        }
+    }
+    return url.toString();
+}
+
+/**
+ * Remove a single filter and redirect
+ */
+function removeFilter(filterName) {
+    const params = getUrlParams();
+    delete params[filterName];
+    window.location.href = buildUrl(params);
+}
+
+/**
+ * Remove a category from the multi-select filter
+ */
+function removeCategoryFilter(categoryId) {
+    const params = getUrlParams();
+
+    if (params.category) {
+        if (Array.isArray(params.category)) {
+            params.category = params.category.filter(id => id !== categoryId);
+            if (params.category.length === 0) {
+                delete params.category;
+            }
+        } else if (params.category === categoryId) {
+            delete params.category;
+        }
+    }
+
+    window.location.href = buildUrl(params);
+}
+
+/**
+ * Clear all filters and redirect to base transactions page
+ */
+function clearAllFilters() {
+    window.location.href = '/transactions';
+}
+
+/**
+ * Update UI elements based on active filters
+ */
+function updateFilterUI() {
+    const params = getUrlParams();
+    const filterKeys = Object.keys(params).filter(key => params[key] !== '');
+    const hasFilters = filterKeys.length > 0;
+
+    // Show/hide clear button
+    const clearBtn = document.getElementById('clear-filters-btn');
+    if (clearBtn) {
+        clearBtn.style.display = hasFilters ? 'inline-block' : 'none';
+    }
+
+    // Update filter count badge
+    const filterCount = document.getElementById('filter-count');
+    if (filterCount) {
+        filterCount.textContent = hasFilters ? `(${filterKeys.length} active)` : '';
+    }
+}
+
+/**
+ * Handle collapse toggle icon
+ */
+function initFilterToggle() {
+    const filterFields = document.getElementById('filterFields');
+    const toggleIcon = document.querySelector('.filter-toggle-icon');
+
+    if (filterFields && toggleIcon) {
+        filterFields.addEventListener('show.bs.collapse', () => {
+            toggleIcon.innerHTML = '&#9660;'; // Down arrow
+        });
+
+        filterFields.addEventListener('hide.bs.collapse', () => {
+            toggleIcon.innerHTML = '&#9654;'; // Right arrow
+        });
+    }
+}
+
+/**
+ * Update category dropdown label based on selected checkboxes
+ */
+function updateCategoryLabel() {
+    const checkboxes = document.querySelectorAll('.category-dropdown-menu input[type="checkbox"]');
+    const checked = document.querySelectorAll('.category-dropdown-menu input[type="checkbox"]:checked');
+    const label = document.getElementById('categoryDropdownLabel');
+
+    if (label) {
+        if (checked.length === 0) {
+            label.textContent = 'All categories';
+        } else if (checked.length === checkboxes.length) {
+            label.textContent = 'All categories';
+        } else {
+            label.textContent = checked.length + ' selected';
+        }
+    }
+}
+
+/**
+ * Initialize filter bar on page load
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    updateFilterUI();
+    initFilterToggle();
+    updateCategoryLabel();
+});

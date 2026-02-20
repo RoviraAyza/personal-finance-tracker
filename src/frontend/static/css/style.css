@@ -135,3 +135,139 @@ tr.selected {
 .border-dashed {
     border-style: dashed !important;
 }
+
+/* ==================== FILTER BAR (SAP Fiori Style) ==================== */
+
+.filter-bar {
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+}
+
+.filter-bar .card-body {
+    background-color: #fafafa;
+}
+
+.filter-toggle {
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.filter-toggle:hover {
+    color: #0d6efd;
+}
+
+.filter-toggle-icon {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 0.7em;
+    transition: transform 0.2s;
+}
+
+.filter-count {
+    font-size: 0.8rem;
+    font-weight: normal;
+}
+
+/* Filter form labels */
+.filter-bar .form-label {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.75rem;
+}
+
+/* Category dots */
+.category-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+/* Category dropdown */
+.category-dropdown .dropdown-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.category-dropdown-menu {
+    max-height: 250px;
+    overflow-y: auto;
+    min-width: 200px;
+}
+
+.category-dropdown-menu .dropdown-item {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+}
+
+.category-dropdown-menu .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.category-dropdown-menu .form-check-input {
+    margin-top: 0;
+}
+
+/* ==================== FILTER CHIPS ==================== */
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background-color: #e7f1ff;
+    color: #0d6efd;
+    border: 1px solid #b6d4fe;
+    border-radius: 1rem;
+}
+
+.filter-chip .btn-close {
+    width: 0.65rem;
+    height: 0.65rem;
+    padding: 0;
+    background-size: 0.5rem;
+    opacity: 0.7;
+}
+
+.filter-chip .btn-close:hover {
+    opacity: 1;
+}
+
+/* Responsive adjustments for filter bar */
+@media (max-width: 768px) {
+    .category-select-container {
+        max-height: none;
+    }
+
+    .filter-bar .row.g-3 > div {
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .filter-chips {
+        margin-top: 0.5rem;
+    }
+
+    .filter-chip {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}

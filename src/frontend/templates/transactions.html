@@ -23,24 +23,179 @@
     </div>
 </div>
 
-<!-- Filters and Actions -->
+<!-- SAP Fiori-Style Filter Bar -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card filter-bar">
+            <div class="card-body py-3">
+                <!-- Filter Bar Header -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button class="btn btn-link p-0 text-decoration-none filter-toggle"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#filterFields"
+                            aria-expanded="true">
+                        <span class="filter-toggle-icon">&#9660;</span>
+                        <strong>Filters</strong>
+                        <span class="text-muted ms-2 filter-count" id="filter-count"></span>
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm me-2"
+                                onclick="clearAllFilters()" id="clear-filters-btn" style="display: none;">
+                            Clear All
+                        </button>
+                        <button type="submit" form="filter-form" class="btn btn-primary btn-sm">
+                            Go
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Collapsible Filter Fields -->
+                <form id="filter-form" method="GET" action="{{ url_for('transactions') }}">
+                    <div class="collapse show" id="filterFields">
+                        <div class="row g-3">
+                            <!-- Date From -->
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted">Date From</label>
+                                <input type="date" name="date_from" class="form-control form-control-sm"
+                                       value="{{ request.args.get('date_from', '') }}">
+                            </div>
+
+                            <!-- Date To -->
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted">Date To</label>
+                                <input type="date" name="date_to" class="form-control form-control-sm"
+                                       value="{{ request.args.get('date_to', '') }}">
+                            </div>
+
+                            <!-- Description Search -->
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">Description</label>
+                                <input type="text" name="description" class="form-control form-control-sm"
+                                       placeholder="Search..."
+                                       value="{{ request.args.get('description', '') }}">
+                            </div>
+
+                            <!-- Amount Min -->
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted">Min Amount</label>
+                                <input type="number" name="amount_min" class="form-control form-control-sm"
+                                       step="0.01" placeholder="0.00"
+                                       value="{{ request.args.get('amount_min', '') }}">
+                            </div>
+
+                            <!-- Amount Max -->
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted">Max Amount</label>
+                                <input type="number" name="amount_max" class="form-control form-control-sm"
+                                       step="0.01" placeholder="0.00"
+                                       value="{{ request.args.get('amount_max', '') }}">
+                            </div>
+                        </div>
+
+                        <!-- Second Row: Category Multi-Select Dropdown -->
+                        {% if categories %}
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted">Categories</label>
+                                <div class="dropdown category-dropdown">
+                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start"
+                                            type="button"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-auto-close="outside"
+                                            aria-expanded="false"
+                                            id="categoryDropdownBtn">
+                                        <span id="categoryDropdownLabel">
+                                            {% set selected_cats = request.args.getlist('category') %}
+                                            {% if selected_cats %}
+                                                {{ selected_cats|length }} selected
+                                            {% else %}
+                                                All categories
+                                            {% endif %}
+                                        </span>
+                                    </button>
+                                    <ul class="dropdown-menu category-dropdown-menu">
+                                        {% for category in categories %}
+                                        <li>
+                                            <label class="dropdown-item">
+                                                <input class="form-check-input me-2" type="checkbox"
+                                                       name="category" value="{{ category.id }}"
+                                                       id="cat-{{ category.id }}"
+                                                       onchange="updateCategoryLabel()"
+                                                       {% if category.id|string in request.args.getlist('category') %}checked{% endif %}>
+                                                <span class="category-dot" style="background-color: {{ category.color }};"></span>
+                                                {{ category.name }}
+                                            </label>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </form>
+
+                <!-- Active Filter Chips -->
+                {% if active_filters %}
+                <div class="filter-chips mt-3" id="filter-chips">
+                    {% if active_filters.get('date_from') %}
+                    <span class="badge filter-chip">
+                        From: {{ active_filters.date_from }}
+                        <button type="button" class="btn-close" onclick="removeFilter('date_from')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% if active_filters.get('date_to') %}
+                    <span class="badge filter-chip">
+                        To: {{ active_filters.date_to }}
+                        <button type="button" class="btn-close" onclick="removeFilter('date_to')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% if active_filters.get('description') %}
+                    <span class="badge filter-chip">
+                        "{{ active_filters.description }}"
+                        <button type="button" class="btn-close" onclick="removeFilter('description')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% if active_filters.get('amount_min') %}
+                    <span class="badge filter-chip">
+                        Min: {{ active_filters.amount_min }} EUR
+                        <button type="button" class="btn-close" onclick="removeFilter('amount_min')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% if active_filters.get('amount_max') %}
+                    <span class="badge filter-chip">
+                        Max: {{ active_filters.amount_max }} EUR
+                        <button type="button" class="btn-close" onclick="removeFilter('amount_max')"></button>
+                    </span>
+                    {% endif %}
+
+                    {% for cat_id in active_filters.get('categories', []) %}
+                        {% for category in categories if category.id|string == cat_id %}
+                        <span class="badge filter-chip" style="background-color: {{ category.color }}20; border-color: {{ category.color }}; color: {{ category.color }};">
+                            {{ category.name }}
+                            <button type="button" class="btn-close" onclick="removeCategoryFilter('{{ cat_id }}')"></button>
+                        </span>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction count and Auto-categorize -->
 <div class="row mt-3">
     <div class="col-12 d-flex justify-content-between align-items-center">
-        <div class="btn-group" role="group">
-            <a href="{{ url_for('transactions', filter='all') }}"
-               class="btn btn-outline-secondary {% if current_filter == 'all' %}active{% endif %}">
-                All
-            </a>
-            <a href="{{ url_for('transactions', filter='uncategorized') }}"
-               class="btn btn-outline-secondary {% if current_filter == 'uncategorized' %}active{% endif %}">
-                Uncategorized
-            </a>
-            <a href="{{ url_for('transactions', filter='categorized') }}"
-               class="btn btn-outline-secondary {% if current_filter == 'categorized' %}active{% endif %}">
-                Categorized
-            </a>
-        </div>
-        <button class="btn btn-outline-primary" onclick="autoCategorize()" id="auto-cat-btn">
+        <span class="text-muted">
+            <strong>{{ transactions|length }}</strong> transactions
+        </span>
+        <button class="btn btn-outline-primary btn-sm" onclick="autoCategorize()" id="auto-cat-btn">
             <span id="auto-cat-text">Auto-Categorize</span>
             <span id="auto-cat-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
         </button>

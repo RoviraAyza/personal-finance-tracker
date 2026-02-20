@@ -171,17 +171,78 @@ def register_routes(app):
 
     @app.route('/transactions')
     def transactions():
-        filter_type = request.args.get('filter', 'all')
+        from datetime import datetime
+
+        # Get filter parameters
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        description = request.args.get('description', '').strip()
+        amount_min = request.args.get('amount_min', '').strip()
+        amount_max = request.args.get('amount_max', '').strip()
+        category_ids = request.args.getlist('category')
 
         query = Transaction.query.order_by(Transaction.date.desc())
 
-        if filter_type == 'uncategorized':
-            query = query.filter_by(category_id=None)
-        elif filter_type == 'categorized':
-            query = query.filter(Transaction.category_id.isnot(None))
+        # Apply date range filter
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+                query = query.filter(Transaction.date >= from_date)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+                query = query.filter(Transaction.date <= to_date)
+            except ValueError:
+                pass
+
+        # Apply description search (case-insensitive partial match)
+        if description:
+            query = query.filter(Transaction.description.ilike(f'%{description}%'))
+
+        # Apply amount range filter
+        if amount_min:
+            try:
+                min_val = float(amount_min)
+                query = query.filter(Transaction.amount >= min_val)
+            except ValueError:
+                pass
+
+        if amount_max:
+            try:
+                max_val = float(amount_max)
+                query = query.filter(Transaction.amount <= max_val)
+            except ValueError:
+                pass
+
+        # Apply category filter (multiple selection)
+        if category_ids:
+            try:
+                cat_ids = [int(cid) for cid in category_ids if cid]
+                if cat_ids:
+                    query = query.filter(Transaction.category_id.in_(cat_ids))
+            except ValueError:
+                pass
 
         all_transactions = query.all()
         categories = Category.query.order_by(Category.name).all()
+
+        # Build active filters dict for template
+        active_filters = {}
+        if date_from:
+            active_filters['date_from'] = date_from
+        if date_to:
+            active_filters['date_to'] = date_to
+        if description:
+            active_filters['description'] = description
+        if amount_min:
+            active_filters['amount_min'] = amount_min
+        if amount_max:
+            active_filters['amount_max'] = amount_max
+        if category_ids:
+            active_filters['categories'] = category_ids
 
         # Get CSV folder info for sync button
         csv_folder = get_csv_source_folder()
@@ -191,7 +252,7 @@ def register_routes(app):
         return render_template('transactions.html',
                                transactions=all_transactions,
                                categories=categories,
-                               current_filter=filter_type,
+                               active_filters=active_filters,
                                csv_folder=csv_folder,
                                folder_exists=folder_exists,
                                csv_count=csv_count)
