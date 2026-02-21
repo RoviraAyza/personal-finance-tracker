@@ -313,6 +313,69 @@ tr.selected {
     margin-top: 0;
 }
 
+/* ==================== CATEGORY DOT (inline in description) ==================== */
+
+.cat-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* ==================== DETAIL MODAL CATEGORY PICKER ==================== */
+
+.detail-cat-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.detail-cat-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1060;
+    min-width: 200px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.15);
+    padding: 0.25rem 0;
+    margin-top: 4px;
+}
+
+.detail-cat-dropdown.show {
+    display: block;
+}
+
+.detail-cat-option {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    color: #333;
+}
+
+.detail-cat-option:hover {
+    background-color: #f0f4ff;
+}
+
+.detail-cat-option.detail-cat-active {
+    background-color: #e7f1ff;
+    font-weight: 600;
+}
+
+.detail-cat-option .category-dot {
+    flex-shrink: 0;
+}
+
 /* ==================== CLICKABLE ROWS & DETAIL MODAL ==================== */
 
 tr.clickable-row {

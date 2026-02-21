@@ -310,12 +310,26 @@ def register_routes(app):
         category_id = data.get('category_id')
         if category_id:
             transaction.category_id = int(category_id)
+
+            # Auto-categorize all other uncategorized transactions with the same description
+            siblings = Transaction.query.filter(
+                Transaction.description == transaction.description,
+                Transaction.id != transaction.id,
+                Transaction.category_id.is_(None)
+            ).all()
+            for sibling in siblings:
+                sibling.category_id = int(category_id)
         else:
             transaction.category_id = None
+            siblings = []
 
         db.session.commit()
 
-        return jsonify({'success': True, 'transaction': transaction.to_dict()})
+        return jsonify({
+            'success': True,
+            'transaction': transaction.to_dict(),
+            'also_categorized': [{'id': s.id, 'category_id': s.category_id} for s in siblings]
+        })
 
     @app.route('/transactions/bulk-categorize', methods=['POST'])
     def bulk_categorize():

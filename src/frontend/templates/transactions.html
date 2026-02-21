@@ -240,36 +240,7 @@
                             Account
                         </label>
                     </li>
-                    <li>
-                        <label class="dropdown-item">
-                            <input class="form-check-input me-2" type="checkbox" data-toggle-col="category" checked>
-                            Category
-                        </label>
-                    </li>
                 </ul>
-            </div>
-            <button class="btn btn-outline-primary btn-sm" onclick="autoCategorize()" id="auto-cat-btn">
-                <span id="auto-cat-text">Auto-Categorize</span>
-                <span id="auto-cat-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Bulk Actions Bar -->
-<div class="row mt-3 d-none" id="bulk-actions">
-    <div class="col-12">
-        <div class="card bg-light">
-            <div class="card-body py-2 d-flex align-items-center gap-3">
-                <span><strong id="selected-count">0</strong> selected</span>
-                <select class="form-select form-select-sm" style="width: auto;" id="bulk-category">
-                    <option value="">-- Select Category --</option>
-                    {% for category in categories %}
-                    <option value="{{ category.id }}">{{ category.name }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-primary btn-sm" onclick="bulkCategorize()">Apply Category</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">Clear Selection</button>
             </div>
         </div>
     </div>
@@ -282,9 +253,6 @@
             <table class="table table-hover">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 40px;">
-                            <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
-                        </th>
                         <th class="sortable" data-sort="date" onclick="sortTable('date')">
                             Date <span class="sort-icon">↕</span>
                         </th>
@@ -299,42 +267,23 @@
                             Balance <span class="sort-icon">↕</span>
                         </th>
                         <th data-col="account">Account</th>
-                        <th style="width: 200px;" data-col="category">Category</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for transaction in transactions %}
                     <tr data-id="{{ transaction.id }}" onclick="showTransactionDetail({{ transaction.id }}, event)" class="clickable-row">
-                        <td>
-                            <input type="checkbox" class="form-check-input transaction-checkbox"
-                                   value="{{ transaction.id }}" onchange="updateSelection()">
-                        </td>
                         <td>{{ transaction.date.strftime('%d/%m/%Y') }}</td>
-                        <td data-col="description">{{ transaction.description }}</td>
+                        <td data-col="description"><span class="cat-dot" style="background-color: {{ transaction.category.color if transaction.category else 'transparent' }};" title="{{ transaction.category.name if transaction.category else '' }}"></span>{{ transaction.description }}</td>
                         <td data-col="extra_details" class="text-muted small">{{ transaction.extra_details or '' }}</td>
                         <td data-col="amount" class="text-end {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
                             {{ "%.2f"|format(transaction.amount) }} EUR
                         </td>
                         <td data-col="balance" class="text-end">{{ "%.2f"|format(transaction.balance) if transaction.balance is not none else '' }}</td>
                         <td data-col="account" class="text-muted small">{{ ('...' + transaction.account_number[-4:]) if transaction.account_number else '' }}</td>
-                        <td data-col="category">
-                            <select class="form-select form-select-sm category-select"
-                                    data-transaction-id="{{ transaction.id }}"
-                                    onchange="categorizeTransaction(this)">
-                                <option value="">-- Select --</option>
-                                {% for category in categories %}
-                                <option value="{{ category.id }}"
-                                        {% if transaction.category_id == category.id %}selected{% endif %}
-                                        data-color="{{ category.color }}">
-                                    {{ category.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
+                        <td colspan="6" class="text-center text-muted py-5">
                             No transactions found.
                             <a href="{{ url_for('settings') }}">Configure your bank folder</a> and sync to get started.
                         </td>
