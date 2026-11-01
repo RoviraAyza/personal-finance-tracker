@@ -186,18 +186,37 @@ where the data lives, and how the monthly import works.
 signing a *native* iOS app requires Xcode, which requires macOS. Any path to an
 iPhone app from Windows must route around this.
 
-❓ Open — this is now the main blocking decision (Q5). The realistic options,
-their trade-offs, and a recommendation are to be settled before `spec.md`.
+✅ **DECIDED — React Native + Expo.** Develop on Windows, test on the real
+iPhone over wifi via Expo Go, build for distribution through EAS cloud builds.
+No Mac required at any point. Learning payload: TypeScript, React Native,
+on-device storage.
 
-**Consequences to decide along with it:**
-- ❓ **Where does the data live?** On the phone, or on the desktop with the phone
-  as a viewer? On-device keeps the privacy story simple and needs no server;
-  desktop-hosted means sync, which is where "simple" usually dies.
-- ❓ **Where does the Excel import happen?** Importing a 4 MB `.xls` on a phone
-  is possible (iOS share sheet → app), and would make the monthly ritual
-  entirely phone-based. The alternative splits the app in two.
-- ❓ **Does the rule bootstrap stay a desktop step?** Likely yes — a one-off
-  script producing a rules file that ships with the app.
+### 🔀 Architecture: desktop does the work, phone does the asking
+
+✅ **DECIDED — the import runs on the desktop; the phone is a viewer.**
+
+This splits along how the work actually divides, rather than cutting across it:
+
+| | Desktop (Python) | Phone (Expo/React Native) |
+|---|---|---|
+| **Role** | Does the work | Answers the question |
+| **Cadence** | Monthly, ~20 minutes | Any time, 5 seconds |
+| **Tasks** | Parse `.xls`, categorize, triage unknowns, edit rules | Show spend by category for a period |
+| **Why there** | Keyboard work; `xlrd` already parses the real file correctly | It's a glance, and the phone is where the question occurs |
+| **Writes?** | Yes — owns the data | No — read-only |
+
+Consequences, all positive:
+- The 4 MB BIFF8 parse stays in Python, where it is already proven to work,
+  instead of being attempted on a phone.
+- **The phone is read-only, so there is no sync conflict to resolve** — data
+  flows one way only. This removes the hardest part of sync entirely.
+- Two codebases, two languages. Accepted: the Python side is a utility script,
+  and the app side is where the learning goal lives.
+
+✅ **The rule bootstrap stays a one-off desktop step**, producing a rules file
+that the desktop tool reads. Not a runtime dependency of anything.
+
+❓ **Open — the remaining hole: how the snapshot reaches the phone.** See Q7.
 
 ---
 
