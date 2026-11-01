@@ -51,12 +51,24 @@ one step away instead of rebuilt from scratch every time.
 5. See spend by category for any period, without rebuilding the query
 
 ### The main view
-Because there is really only **one** query (§1), the app does not need a
-saved-view library. It needs that one view, always present, with a period
-selector that handles month / week / arbitrary range. "Saving filters" stops
-being a feature and becomes the default state of the app.
 
-❓ Open: whether anything beyond this one view is actually needed (see Q4).
+⚠️ **Correction (2026-11-01).** An earlier draft of this file concluded that
+because there is one dominant query, saved filters "stop being a feature."
+**That was wrong, and the originator corrected it:**
+
+> ✅ *"Tapping a category is needed; filters should be flexible to create and
+> easy to save."*
+
+So there are **three** requirements here, not one:
+
+1. ✅ **The default view** — spend by category for a period, always one step
+   away. Period is free: month, week, arbitrary range.
+2. ✅ **Drill-down** — tap a category, see the transactions inside it. This is
+   also how a miscategorised row gets noticed; without it a wrong rule is
+   invisible.
+3. ✅ **Flexible, saveable filters** — easy to build a slice and easy to keep
+   it. This is a direct answer to the bank's second failure ("the work is
+   never banked"), so it is a first-class feature, not a later addition.
 
 ### The categorization engine
 ✅ **Bootstrap the rules from history, then maintain them by exception.**
@@ -161,6 +173,53 @@ One caution from that comparison: the monthly file leaves two columns
 populates. That is sparsity, not a format difference — **the parser must work
 from the fixed header, never infer the schema from which columns happen to
 carry data in a given file.**
+
+### 🔀 Multiple accounts — a new requirement
+
+✅ **The originator has a personal account and a family account, and wants to
+keep them separate** in the analysis.
+
+⚠️ **Both files supplied contain exactly one account** (`2100 9304 11 …`,
+10,034 of 10,034 rows and 127 of 127 rows). **The export is per-account**, so
+multi-account support means **one download per account per month**, and the
+import must carry account identity through as a first-class dimension — not
+derive it from the file, which names only one.
+
+❓ Open: is the family account at the same bank, with the same export format?
+(Likely, but unverified — and a second bank would mean a second parser, which
+is the kind of thing that should not be discovered during Stage 3.)
+
+### ⚠️ Own-transfers would double-count badly
+
+`TRASPASO PROPIO` ("own transfer") appears **542 times**, totalling
+**€205,219 in** against **€5,773 out** over nine years — ~€23k/year arriving.
+
+That lopsidedness says this account is **funded from another account** rather
+than earning directly. The counterparty names on those rows are the originator
+and a family member, and the spending on this account is overwhelmingly
+household (groceries, bakery, cafés).
+
+> **Hypothesis to confirm:** the profiled account is the **family/household
+> account**, topped up monthly from personal accounts.
+
+Either way the consequence is firm: **once both accounts are loaded, an own
+transfer appears twice** — as money leaving one and arriving in the other.
+Counted naively it would add €205k of phantom income and inflate every total.
+✅ Own-transfers must be identifiable and excluded from spending analysis by
+default. Usefully, `Concepte comú`/`propi` give a reliable code for them
+(`02`/`067`), so this is detectable without parsing free text.
+
+### Cards do not identify who spent
+
+`Referència 2` holds a 16-digit card number on card purchases — but the 10+
+distinct values cluster into **date ranges, i.e. card renewals** (e.g. one card
+runs 2021-02 → 2026-02, its successor 2025-07 → 2026-09). The column is also
+**overloaded**: on transfers it holds an origin reference, not a card
+(`ORIGEN: MAGYLUL1`), and some values aren't 16 characters at all.
+
+Some cards *do* run concurrently, which probably means two cards on one account
+— a weak signal for "who spent", but not a reliable one. ❓ Open: is
+per-person attribution wanted at all, or is per-account separation enough?
 
 ### ⚠️ Transaction identity — there is no natural key
 
@@ -271,19 +330,19 @@ Blocking:
    see §3. One parser serves both the history and the monthly top-up.
 2. ✅ **RESOLVED — verified identical.** The monthly export and the 9-year
    history share one format exactly. One parser.
-3. ❓ **Categories** — do you have a list in mind, or should the bootstrap
-   propose one from the 1,082 descriptions for you to edit?
-4. ❓ **Is "spend by category for a period" the whole app, or just the front
-   door?** Answered in part: it is the dominant query. Still open —
-   - Does a total need something to be compared *against* to be useful?
-     ("€840 on groceries" only means something next to a typical month.)
-   - Do you ever need to drill from a category into its transactions?
-   - Is there a second question you ask occasionally but genuinely need?
+3. ✅ **RESOLVED — the bootstrap proposes, the originator edits.** Send the
+   1,082 unique descriptions to the model once, let it propose a category set
+   grounded in real spending, then cut it down. Easier to react to a concrete
+   list than to invent one, and it will not miss categories he'd forget.
+4. ✅ **RESOLVED — not the whole app.** Drill-down into a category is
+   required, and filters must be flexible to create and easy to save. See §2.
+   ❓ Still open, minor: whether a period total needs a comparison baseline
+   (previous month, same month last year) to be meaningful.
 5. ✅ **RESOLVED — React Native + Expo**, with desktop import and a
    read-only phone viewer. See §4.
-6. ❓ **Does the 9-year history get loaded as data**, or is it only a
-   rule-bootstrap corpus? Loading it gives instant 9-year trends on day one,
-   for the same parser and ~10k rows — cheap, and hard to argue against.
+6. ✅ **RESOLVED — load all nine years as data.** Same parser, ~10k rows;
+   gives nine years of history from day one and a real corpus for measuring
+   rule coverage.
 7. ❓ **How does the snapshot get from the desktop to the phone?** The last
    structural hole. Candidates, cheapest first:
    - **A file in iCloud Drive.** The desktop writes a compact snapshot; the
@@ -311,6 +370,12 @@ Blocking:
 | 2026-11-01 | Desktop imports and owns the data; phone is a read-only viewer | Triage is keyboard work and the query is a glance; keeps the BIFF8 parse in Python where it already works; makes data flow one-way, removing sync conflicts |
 | 2026-11-01 | Snapshot reaches the phone as a file via an existing cloud folder, read with the iOS Files picker | The data only changes monthly, so there is nothing to sync continuously — avoids a server, auth, hosting and conflict resolution entirely |
 | 2026-11-01 | Transaction identity = hash of the full source row | No natural key exists; 98 same-day/same-amount/same-merchant pairs in 9 years are genuine distinct transactions, and a narrower key would delete real spending |
+| 2026-11-01 | Bootstrap proposes the category list; originator edits it down | Easier to react to a concrete list than invent one, and it won't miss categories he'd forget |
+| 2026-11-01 | Drill-down into a category is required | A total invites "on what?", and it is how a miscategorised row gets noticed |
+| 2026-11-01 | Flexible, saveable filters are first-class (reversing an earlier simplification) | Directly answers the bank's second failure, "the work is never banked" |
+| 2026-11-01 | Load all nine years as data | Nearly free with the same parser; gives history from day one and a corpus to measure rule coverage |
+| 2026-11-01 | Accounts are a first-class dimension; personal and family kept separate | Originator's requirement; the export is per-account, so identity cannot be inferred from the file |
+| 2026-11-01 | Own-transfers excluded from spending analysis by default | They appear in both accounts once both are loaded; €205k of phantom income otherwise |
 
 ---
 
