@@ -316,6 +316,26 @@ in a first check was an artefact of the undated trailing junk row.)*
   dependency of the running app.
 - Follows the AI-native SDLC playbook, adapted for a solo project:
   `intent.md` → `spec.md` → `plan.md` → code, reviewed between stages.
+- ✅ **Effort: thin end-to-end slices, riskiest first.** The originator named
+  the real tension — *"too little effort, I wouldn't learn anything; too much
+  effort, I can take too much and not get finished."* The answer is not a
+  number of hours but a shape of work: **every slice is end-to-end and leaves a
+  working tool**, so stopping at any point is a legitimate outcome rather than
+  an abandoned project.
+
+  ⚠️ **Ordering is deliberately counterintuitive — the iPhone app comes
+  first, not last.**
+  - The Python side is **already de-risked**: the real file has been parsed,
+    the traps found, the identity key settled. No unknowns remain there.
+  - The **unknown** is whether the Expo → Windows → iPhone pipeline works
+    smoothly, and whether the originator enjoys it. Unknowns go first —
+    discovering a hostile toolchain in week one with a throwaway beats
+    discovering it in month three with real data waiting on it.
+  - The app is **half the motivation.** Weeks of Excel plumbing teach an ABAP
+    developer nothing new, and that is precisely where this project would die.
+
+  First slice: an ugly Expo app on the phone showing a few hardcoded
+  categories. Not useful, entirely disposable, proves the riskiest part works.
 - ✅ **Privacy.** The bootstrap step means sending merchant descriptions to a
   model. Agreed mitigation: send only the **deduplicated list of unique
   description strings** — now known to be ~1,082 of them — with no amounts,
@@ -375,7 +395,14 @@ that the desktop tool reads. Not a runtime dependency of anything.
 
 - ✅ Bank API integration / automated import — accepted as manual.
 - ✅ Machine learning or LLM inference at runtime — rules are deterministic.
-- ❓ Anything else not yet stated.
+- ✅ A hosted backend, user accounts, authentication — the phone reads a file.
+- ✅ Multi-user or shared access — single user.
+- ✅ Per-person attribution within an account — accounts give the distinction
+  that matters; card numbers cannot support it.
+- ✅ Writing from the phone — the phone is read-only.
+- ✅ Loading a second account in v1 — modelled, but not loaded.
+- ❓ Budgeting and forecasting — **not yet discussed.** Deliberately left
+  unstated rather than assumed either way.
 
 ---
 
@@ -393,22 +420,33 @@ Blocking:
    list than to invent one, and it will not miss categories he'd forget.
 4. ✅ **RESOLVED — not the whole app.** Drill-down into a category is
    required, and filters must be flexible to create and easy to save. See §2.
-   ❓ Still open, minor: whether a period total needs a comparison baseline
-   (previous month, same month last year) to be meaningful.
+   ✅ **Also resolved — include one simple comparison.** A bare total
+   ("€840 on groceries") is true but not actionable: without a reference the
+   originator must remember last month's figure, which is the "work is never
+   banked" problem again. Each category total is shown against a reference
+   (previous period and/or a rolling average) — nearly free given nine years
+   of history, but a different screen, so decided now.
 5. ✅ **RESOLVED — React Native + Expo**, with desktop import and a
    read-only phone viewer. See §4.
 6. ✅ **RESOLVED — load all nine years as data.** Same parser, ~10k rows;
    gives nine years of history from day one and a real corpus for measuring
    rule coverage.
-7. ❓ **How does the snapshot get from the desktop to the phone?** The last
-   structural hole. Candidates, cheapest first:
-   - **A file in iCloud Drive.** The desktop writes a compact snapshot; the
-     phone app reads it. No server, no auth, no hosting — sync becomes
-     someone else's problem. Cost: data passes through Apple's cloud.
-   - **Local network only.** The desktop serves to the phone over home wifi.
-     Nothing leaves the house, but the answer is only available at home.
-   - **A hosted backend.** The most to learn and the most to maintain, and it
-     puts the family's financial history on a server.
+7. ✅ **RESOLVED — a file, via a cloud folder already in use.** The data
+   only changes monthly, so there is nothing to sync continuously; it is a
+   once-a-month handoff at the end of a ritual already being performed. The
+   desktop import writes one compact snapshot (~10k transactions, well under
+   1 MB); the phone app has an **Import** button that opens the iOS Files
+   picker and reads it. Avoids a server, hosting, authentication, OAuth,
+   background sync and conflict resolution entirely. A real backend remains a
+   deliberate later upgrade, not a prerequisite.
+
+### Remaining open — non-blocking
+
+8. ❓ Whether the **wife's** personal account is ever added (noted as a
+   possibility; does not shape the design).
+9. ❓ Whether the **personal** account export is the same CaixaBank format.
+   Not blocking while v1 is joint-account only, but worth a format check
+   before that account is added.
 
 ---
 
@@ -431,16 +469,27 @@ Blocking:
 | 2026-11-01 | Drill-down into a category is required | A total invites "on what?", and it is how a miscategorised row gets noticed |
 | 2026-11-01 | Flexible, saveable filters are first-class (reversing an earlier simplification) | Directly answers the bank's second failure, "the work is never banked" |
 | 2026-11-01 | Load all nine years as data | Nearly free with the same parser; gives history from day one and a corpus to measure rule coverage |
-| 2026-11-01 | Accounts are a first-class dimension; personal and family kept separate | Originator's requirement; the export is per-account, so identity cannot be inferred from the file |
+| 2026-11-01 | Accounts are a first-class dimension; personal and family kept separate | Originator's requirement. The export is per-account **and self-identifying** — the account number is in column 1 on every row — so the importer reads account identity rather than being told it |
 | 2026-11-01 | Own-transfers excluded from spending analysis by default | They appear in both accounts once both are loaded; €205k of phantom income otherwise |
 | 2026-11-01 | Confirmed: profiled account is the joint "común" account for everyday household expenses, funded monthly by both spouses | Originator confirmed; matches €205k in / €5.8k out and household-only spending |
 | 2026-11-01 | Attribution comes from account separation, not card numbers | Cards are reissued over time and the column is overloaded; account separation gives the distinction that actually matters |
 | 2026-11-01 | Model accounts from day one; load only the joint account in v1 | The schema cost is ~zero (the account number is in the file), but each extra account costs a download every month forever — so defer the ritual cost, not the schema |
+| 2026-11-01 | Category totals shown against a comparison reference | A bare total is not actionable; having to remember last month's figure is the "work is never banked" problem again |
+| 2026-11-01 | Wife's personal account: possible, not committed | Does not shape the design while v1 is joint-account only |
+| 2026-11-01 | Thin end-to-end slices, each leaving a working tool | Resolves "too little vs too much effort" by making every stopping point a legitimate one |
+| 2026-11-01 | Build the iPhone app first, before the data pipeline | The Python side is already de-risked; the Expo/Windows/iPhone toolchain is the real unknown, and the app carries half the motivation |
 
 ---
 
 ## 8. Approval
 
-- [ ] Originator has corrected the agent-written draft
-- [ ] Open questions resolved
-- [ ] Ready to advance to `spec.md`
+- [x] Originator has corrected the agent-written draft — repeatedly, including
+      two corrections that reversed agent conclusions (saved filters are
+      first-class; nothing carried over from the previous attempt)
+- [x] All blocking open questions resolved (Q1–Q7). Q8–Q9 are non-blocking.
+- [ ] **Ready to advance to `spec.md`** — awaiting the originator's approval
+
+**One question never asked:** budgeting and forecasting. Everything in this
+document is about *understanding* past spending, not steering future spending.
+That may be exactly right — but it is the most common next want, and it is
+better named as a deliberate non-goal than left ambiguous.
