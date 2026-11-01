@@ -181,9 +181,40 @@ keep them separate** in the analysis.
 
 ⚠️ **Both files supplied contain exactly one account** (`2100 9304 11 …`,
 10,034 of 10,034 rows and 127 of 127 rows). **The export is per-account**, so
-multi-account support means **one download per account per month**, and the
-import must carry account identity through as a first-class dimension — not
-derive it from the file, which names only one.
+multi-account support means **one download per account per month**.
+
+✅ **Correction to an earlier note in this file:** account identity does *not*
+need to be supplied by hand at import. The account number is in the data —
+column 1, `Número de compte`, populated on 100% of rows. **Every export
+self-identifies**, so the importer reads the account rather than asking.
+
+### Scoping the multi-account cost
+
+✅ The originator flagged reluctance here — *"it increases complexity in
+different points of the process"* — which is a fair instinct. Where the cost
+actually falls:
+
+| Area | Cost | Assessment |
+|---|---|---|
+| Data model | an `account` column | ~zero; already in the source data |
+| Parser | none | same format, self-identifying |
+| Rules & categories | none | shared across accounts |
+| Transfer exclusion | real but small | ~15 lines; detectable via `02`/`067` codes; only needed once two accounts are loaded |
+| UI | an account filter | modest |
+| **The monthly ritual** | **2–3 downloads instead of 1** | **the real cost — recurring, borne by the user, forever** |
+
+✅ **Decision: model accounts from day one, load only the joint account in v1.**
+
+- The column goes in the schema and the importer reads it from the file —
+  nearly free now.
+- The monthly ritual stays a single download until the tool has proved it is
+  worth the ritual at all.
+- Transfer-exclusion logic stays unwritten until a second account needs it.
+- Avoids the expensive order: hardcoding one account and retrofitting later,
+  which costs a schema migration, a reimport and a UI rework.
+
+The joint account may simply be *enough* — it is where everyday household
+spending happens, which is the question actually asked.
 
 ❓ Open: is the **personal** account at the same bank, with the same export
 format? (Likely — but unverified, and a second bank would mean a second parser,
@@ -404,6 +435,7 @@ Blocking:
 | 2026-11-01 | Own-transfers excluded from spending analysis by default | They appear in both accounts once both are loaded; €205k of phantom income otherwise |
 | 2026-11-01 | Confirmed: profiled account is the joint "común" account for everyday household expenses, funded monthly by both spouses | Originator confirmed; matches €205k in / €5.8k out and household-only spending |
 | 2026-11-01 | Attribution comes from account separation, not card numbers | Cards are reissued over time and the column is overloaded; account separation gives the distinction that actually matters |
+| 2026-11-01 | Model accounts from day one; load only the joint account in v1 | The schema cost is ~zero (the account number is in the file), but each extra account costs a download every month forever — so defer the ritual cost, not the schema |
 
 ---
 
