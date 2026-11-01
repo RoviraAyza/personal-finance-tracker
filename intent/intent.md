@@ -244,11 +244,20 @@ Blocking:
      ("€840 on groceries" only means something next to a typical month.)
    - Do you ever need to drill from a category into its transactions?
    - Is there a second question you ask occasionally but genuinely need?
-5. ❓ **Stack — now the main blocking decision**, because of the iPhone
-   requirement plus the Windows development machine. See §4.
+5. ✅ **RESOLVED — React Native + Expo**, with desktop import and a
+   read-only phone viewer. See §4.
 6. ❓ **Does the 9-year history get loaded as data**, or is it only a
    rule-bootstrap corpus? Loading it gives instant 9-year trends on day one,
    for the same parser and ~10k rows — cheap, and hard to argue against.
+7. ❓ **How does the snapshot get from the desktop to the phone?** The last
+   structural hole. Candidates, cheapest first:
+   - **A file in iCloud Drive.** The desktop writes a compact snapshot; the
+     phone app reads it. No server, no auth, no hosting — sync becomes
+     someone else's problem. Cost: data passes through Apple's cloud.
+   - **Local network only.** The desktop serves to the phone over home wifi.
+     Nothing leaves the house, but the answer is only available at home.
+   - **A hosted backend.** The most to learn and the most to maintain, and it
+     puts the family's financial history on a server.
 
 ---
 
@@ -262,6 +271,9 @@ Blocking:
 | 2026-11-01 | Rules bootstrapped once from 2016+ history via LLM, then deterministic | Family spending is uniform and repetitive; 10 years of labelled reality already exists |
 | 2026-11-01 | Categorization behind a single encapsulated interface | Originator's ABAP instinct; keeps rules swappable and testable |
 | 2026-11-01 | User-defined categories and saved views are first-class | They are the two concrete failures of the bank's app |
+| 2026-11-01 | Target is an iPhone app; learning is a goal of equal weight | Originator's call — accepts more complexity than the task strictly needs |
+| 2026-11-01 | React Native + Expo | The only path to a real iPhone app from Windows with no Mac; teaches genuine app development |
+| 2026-11-01 | Desktop imports and owns the data; phone is a read-only viewer | Triage is keyboard work and the query is a glance; keeps the BIFF8 parse in Python where it already works; makes data flow one-way, removing sync conflicts |
 
 ---
 
