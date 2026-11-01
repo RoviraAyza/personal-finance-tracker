@@ -150,10 +150,45 @@ Two caveats on that field:
 plus two unnamed) — the export is a fixed-width template, mostly unused. The
 model should keep what's real, not mirror all 25 columns.
 
-> **The history file and the monthly file are the same thing.** This export is
-> just a date-range query. One parser handles both the 9-year bootstrap and the
-> monthly top-up — no second import path. *(Worth confirming that the monthly
-> download uses the same "Excel simple" option.)*
+> **The history file and the monthly file are the same thing.** ✅ **Verified**
+> against a real October 2026 monthly export (128 rows): same sheet name
+> (`Excel simple(1)`), same 25 columns, same header on row 3, **byte-identical
+> column headers**. The export is just a date-range query. **One parser serves
+> both** the 9-year bootstrap and the monthly top-up.
+
+One caution from that comparison: the monthly file leaves two columns
+(`Saldo (-)`, `Concepte complementari 7`) entirely empty that the 9-year file
+populates. That is sparsity, not a format difference — **the parser must work
+from the fixed header, never infer the schema from which columns happen to
+carry data in a given file.**
+
+### ⚠️ Transaction identity — there is no natural key
+
+Discovered while checking whether imports need to deduplicate. Tested on the
+9-year file (10,034 real rows):
+
+| Candidate key | Collisions |
+|---|---|
+| `date + income + expense + merchant` | **98** |
+| `date + saldo` | 25 |
+| `account + date + saldo + income + expense` | 2 |
+| **hash of the full source row** | **0** |
+
+The 98 collisions are **not duplicates — they are genuine distinct
+transactions**: two coffees at the same bar, on the same day, for the same
+amount. Inspected and confirmed (e.g. `CAFETERIA EL OLIV`, 04/06/2026, €2.30,
+twice). Deduplicating on those fields would silently delete real spending.
+
+What discriminates them is the **running balance** (`Saldo`), because every
+transaction moves it. Two identical purchases land on different balances.
+
+✅ **Decision: identity is a hash of the complete source row.** Unique across
+10,034 rows, stable, and it makes re-importing idempotent — which matters,
+because the export is a date-range query and overlapping ranges are easy to
+request by accident.
+
+*(Note: the two files in hand have zero genuine overlap — the apparent overlap
+in a first check was an artefact of the undated trailing junk row.)*
 
 ---
 
@@ -234,8 +269,8 @@ Blocking:
 
 1. ✅ **RESOLVED — the export format is known.** Profiled from a real file;
    see §3. One parser serves both the history and the monthly top-up.
-2. ❓ **Confirm the monthly download is the same "Excel simple" export**, so
-   there is genuinely only one input format to support.
+2. ✅ **RESOLVED — verified identical.** The monthly export and the 9-year
+   history share one format exactly. One parser.
 3. ❓ **Categories** — do you have a list in mind, or should the bootstrap
    propose one from the 1,082 descriptions for you to edit?
 4. ❓ **Is "spend by category for a period" the whole app, or just the front
@@ -274,6 +309,8 @@ Blocking:
 | 2026-11-01 | Target is an iPhone app; learning is a goal of equal weight | Originator's call — accepts more complexity than the task strictly needs |
 | 2026-11-01 | React Native + Expo | The only path to a real iPhone app from Windows with no Mac; teaches genuine app development |
 | 2026-11-01 | Desktop imports and owns the data; phone is a read-only viewer | Triage is keyboard work and the query is a glance; keeps the BIFF8 parse in Python where it already works; makes data flow one-way, removing sync conflicts |
+| 2026-11-01 | Snapshot reaches the phone as a file via an existing cloud folder, read with the iOS Files picker | The data only changes monthly, so there is nothing to sync continuously — avoids a server, auth, hosting and conflict resolution entirely |
+| 2026-11-01 | Transaction identity = hash of the full source row | No natural key exists; 98 same-day/same-amount/same-merchant pairs in 9 years are genuine distinct transactions, and a narrower key would delete real spending |
 
 ---
 
