@@ -185,9 +185,9 @@ multi-account support means **one download per account per month**, and the
 import must carry account identity through as a first-class dimension — not
 derive it from the file, which names only one.
 
-❓ Open: is the family account at the same bank, with the same export format?
-(Likely, but unverified — and a second bank would mean a second parser, which
-is the kind of thing that should not be discovered during Stage 3.)
+❓ Open: is the **personal** account at the same bank, with the same export
+format? (Likely — but unverified, and a second bank would mean a second parser,
+which is the kind of thing that should not be discovered during Stage 3.)
 
 ### ⚠️ Own-transfers would double-count badly
 
@@ -199,8 +199,31 @@ than earning directly. The counterparty names on those rows are the originator
 and a family member, and the spending on this account is overwhelmingly
 household (groceries, bakery, cafés).
 
-> **Hypothesis to confirm:** the profiled account is the **family/household
-> account**, topped up monthly from personal accounts.
+> ✅ **CONFIRMED by the originator.** The profiled account is the joint
+> *"común"* account for **everyday household expenses** (*gastos corrientes*).
+> He and his wife each transfer money into it from their own personal accounts
+> every month; the household's day-to-day spending then runs out of it.
+
+So the real structure is three accounts, not two:
+
+```
+  Jose's personal account  ──┐
+                             ├──▶  "común" joint account  ──▶  everyday
+  Wife's personal account  ──┘      (the profiled one)          household
+                                                                spending
+```
+
+This is a genuinely useful shape, because it means **the joint account alone
+answers the core question.** "Where does the family's money go?" is almost
+entirely a question about this one account — which keeps the first version
+small. The personal accounts add individual discretionary spending on top.
+
+It also **solves attribution without needing card numbers**: separating by
+account naturally distinguishes "the household spent this" from "I spent this"
+— cleaner than trying to infer a person from a card that gets reissued.
+
+❓ Open: is the **wife's** personal account in scope too, or only Jose's
+personal account plus the joint one?
 
 Either way the consequence is firm: **once both accounts are loaded, an own
 transfer appears twice** — as money leaving one and arriving in the other.
@@ -217,9 +240,12 @@ runs 2021-02 → 2026-02, its successor 2025-07 → 2026-09). The column is also
 **overloaded**: on transfers it holds an origin reference, not a card
 (`ORIGEN: MAGYLUL1`), and some values aren't 16 characters at all.
 
-Some cards *do* run concurrently, which probably means two cards on one account
-— a weak signal for "who spent", but not a reliable one. ❓ Open: is
-per-person attribution wanted at all, or is per-account separation enough?
+Some cards *do* run concurrently — plausibly Jose's and his wife's cards on the
+joint account — but it is too unreliable to attribute spending to a person.
+
+✅ **Resolved by the account structure instead:** separating accounts gives
+"household vs. mine" directly, which is the distinction that matters. Per-person
+attribution *within* the joint account is not pursued.
 
 ### ⚠️ Transaction identity — there is no natural key
 
@@ -376,6 +402,8 @@ Blocking:
 | 2026-11-01 | Load all nine years as data | Nearly free with the same parser; gives history from day one and a corpus to measure rule coverage |
 | 2026-11-01 | Accounts are a first-class dimension; personal and family kept separate | Originator's requirement; the export is per-account, so identity cannot be inferred from the file |
 | 2026-11-01 | Own-transfers excluded from spending analysis by default | They appear in both accounts once both are loaded; €205k of phantom income otherwise |
+| 2026-11-01 | Confirmed: profiled account is the joint "común" account for everyday household expenses, funded monthly by both spouses | Originator confirmed; matches €205k in / €5.8k out and household-only spending |
+| 2026-11-01 | Attribution comes from account separation, not card numbers | Cards are reissued over time and the column is overloaded; account separation gives the distinction that actually matters |
 
 ---
 
