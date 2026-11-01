@@ -210,3 +210,6 @@ __marimo__/
 src/config.json
 *.db
 Movimientos_cuenta_*.csv
+
+# Local data preserved from v1 (not part of the project)
+_old_data/

@@ -4,7 +4,31 @@
       "Bash(tree:*)",
       "Bash(git checkout:*)",
       "Bash(:)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git branch:*)",
+      "Bash(python app.py:*)",
+      "Bash(del \"C:\\\\Users\\\\rovir\\\\Mi unidad\\\\Projects\\\\personal-finance-tracker\\\\src\\\\frontend\\\\templates\\\\index.html\")",
+      "Bash(cd:*)",
+      "Bash(gh api:*)",
+      "Bash(python:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git status:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(pip install:*)",
+      "Bash(ls \"C:/Users/rovir/Mi unidad/Notes/Twitts/obsidian_bookmarks/\"*.md)",
+      "Bash(xargs -0 grep -lP \"salud\")",
+      "Bash(xargs -I{} head -5 \"{}\")",
+      "Bash(while IFS= read -r f)",
+      "Bash(do)",
+      "Bash(if head -5 \"$f\")",
+      "Bash(then)",
+      "Bash(echo \"$f\")",
+      "Bash(fi)",
+      "Bash(done)"
     ]
   }
 }
