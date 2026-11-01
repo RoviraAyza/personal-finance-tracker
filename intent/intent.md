@@ -23,9 +23,18 @@ two rigidities:
 Note: the complaint is **rigidity, not inaccuracy.** The bank isn't guessing my
 categories wrong so much as refusing to let me define my own and keep them.
 
+### The one query that matters
+✅ **"How much have I spent in this period, and in which categories?"**
+
+- ✅ This is the query used most, by a wide margin.
+- ✅ **The period is arbitrary** — "month, week, whatever." Not a fixed set of
+  reporting periods; any range.
+- Note: this is **one query shape with a variable period**, not a library of
+  different saved queries. That is a significant simplification — see §2.
+
 ### What "better" looks like
-✅ A simple app where the categories are mine, and the questions I ask stay
-asked — so I can see where my family's money goes without redoing work.
+✅ A simple app where the categories are mine, and that one question is always
+one step away instead of rebuilt from scratch every time.
 
 ---
 
@@ -39,7 +48,15 @@ asked — so I can see where my family's money goes without redoing work.
 3. Transactions are categorized automatically by a rule engine
 4. Anything the engine can't categorize is surfaced for a decision, and that
    decision becomes a new rule
-5. See where the money went, through saved views I don't have to rebuild
+5. See spend by category for any period, without rebuilding the query
+
+### The main view
+Because there is really only **one** query (§1), the app does not need a
+saved-view library. It needs that one view, always present, with a period
+selector that handles month / week / arbitrary range. "Saving filters" stops
+being a feature and becomes the default state of the app.
+
+❓ Open: whether anything beyond this one view is actually needed (see Q4).
 
 ### The categorization engine
 ✅ **Bootstrap the rules from history, then maintain them by exception.**
@@ -110,9 +127,12 @@ Blocking:
    you've been maintaining by hand in a different format?
 3. ❓ **Categories** — do you have a list in mind, or should the bootstrap
    propose one from the history for you to edit?
-4. ❓ **Saved views: what are the questions you keep re-asking?** These are
-   literal requirements. "Groceries per month this year", "everything at
-   Amazon", "this month vs. the same month last year" — name the real ones.
+4. ❓ **Is "spend by category for a period" the whole app, or just the front
+   door?** Answered in part: it is the dominant query. Still open —
+   - Does a total need something to be compared *against* to be useful?
+     ("€840 on groceries" only means something next to a typical month.)
+   - Do you ever need to drill from a category into its transactions?
+   - Is there a second question you ask occasionally but genuinely need?
 5. ❓ Stack.
 6. ❓ **Does the 2016 history get loaded as data**, or is it only a rule-training
    corpus? (Loading it means instant 10-year trends on day one.)
