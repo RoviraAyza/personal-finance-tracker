@@ -478,6 +478,7 @@ Blocking:
 | 2026-11-01 | Wife's personal account: possible, not committed | Does not shape the design while v1 is joint-account only |
 | 2026-11-01 | Thin end-to-end slices, each leaving a working tool | Resolves "too little vs too much effort" by making every stopping point a legitimate one |
 | 2026-11-01 | Build the iPhone app first, before the data pipeline | The Python side is already de-risked; the Expo/Windows/iPhone toolchain is the real unknown, and the app carries half the motivation |
+| 2026-11-01 | Repo stays local for now; nothing pushed to GitHub | `main` on the remote still holds v1 and `intent/` is unpushed. The repo is public and these artifacts describe the family's finances in detail. Revisit by making the repo private and pushing — explicitly deferred, not decided against |
 
 ---
 
