@@ -26,7 +26,14 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-q --strict-markers"
+# Not -q: test names are the review surface for anyone who does not read the
+# implementation, so `-v` must actually show them.
+addopts = "--strict-markers"
 markers = [
     "realdata: needs a real bank export; set PF_REAL_XLS to run",
+]
+filterwarnings = [
+    # A deprecation inside the third-party anyio pytest plugin; nothing to do
+    # with this project, and it buries the output that matters.
+    "ignore::pytest.PytestRemovedIn10Warning",
 ]
