@@ -359,8 +359,8 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
 |---|---|---|
 | 1 — `model.py`, `loader.py` | ✅ done | all rule-set errors caught at load time with the offender named; **23 tests** |
 | 2 — `categorizer.py` | ✅ done | pure; first match wins by (priority, id); `explain()`, `unused_rules()`, `shadowed_rules()`; **27 tests** |
-| 3 — `bootstrap/prompt.py` | ⏳ next | |
-| 4 — run the bootstrap, review | ⬜ | human-in-the-loop |
+| 3 — `bootstrap/prompt.py` | ✅ done | `pf bootstrap-prompt` writes the payload to files, sends nothing; **16 tests**, including assertions that no amounts, dates, account or card numbers are present |
+| 4 — run the bootstrap, review | ⏳ **awaiting Jose** | payload generated: 1,053 strings, 33 excluded |
 | 5 — `bootstrap/ingest.py` | ⬜ | |
 | 6 — `coverage.py` | ⬜ | |
 | 7 — `apply.py` | ⬜ | |
@@ -377,3 +377,9 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
   adding a specific rule below a general one and wondering why it never fires.
 - **Category parent validation** — a missing or self-referential parent is a
   load error. The plan did not mention nesting validation.
+- **The prompt template carries no real data.** A test asserts the prompt
+  itself contains no merchant strings; the data lives only in
+  `merchants.txt`. The first draft used a real merchant name as a teaching
+  example and the test caught it, so the examples are now placeholders.
+- **`bootstrap/merchants.txt` is gitignored** — derived bank data, and
+  regenerable from the database. `prompt.md` is data-free and committed.

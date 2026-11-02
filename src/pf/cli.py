@@ -16,6 +16,7 @@ from pf.ingest.importer import import_file
 from pf.ingest.model import FileFormatError, ImportResult
 from pf.ingest.normalize import cents_to_text
 from pf.ingest.reader import describe
+from pf.bootstrap.prompt import write_payload
 
 
 def _force_utf8_output() -> None:
@@ -109,6 +110,34 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bootstrap_prompt(args: argparse.Namespace) -> int:
+    """Write the bootstrap payload to files. Sends nothing anywhere."""
+    path = config.db_path()
+    if not path.exists():
+        print(f"no database at {path}", file=sys.stderr)
+        print("run: pf init-db", file=sys.stderr)
+        return 2
+
+    out = Path(args.out)
+    con = open_initialised(path)
+    try:
+        prompt_path, merchants_path, payload = write_payload(con, out)
+    finally:
+        con.close()
+
+    print("nothing has been sent anywhere. two files were written:")
+    print(f"  {prompt_path}")
+    print(f"  {merchants_path}")
+    print()
+    print(f"  distinct descriptions in the database : {payload.total_distinct:,}")
+    print(f"  excluded (transfer rows only)         : {payload.excluded_transfer_only:,}")
+    print(f"  merchant strings in the payload       : {payload.count:,}")
+    print()
+    print("read merchants.txt before sending it. it contains merchant names")
+    print("only: no amounts, dates, balances, account or card numbers.")
+    return 0
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     path = config.db_path()
     if not path.exists() and str(path) != ":memory:":
@@ -187,6 +216,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="parse and report without writing anything",
     )
     imp.set_defaults(func=cmd_import)
+
+    boot = subs.add_parser(
+        "bootstrap-prompt",
+        help="write the categorisation prompt and merchant list to files",
+    )
+    boot.add_argument(
+        "--out", default="bootstrap", help="directory to write into (default: bootstrap)"
+    )
+    boot.set_defaults(func=cmd_bootstrap_prompt)
 
     summary = subs.add_parser("summary", help="what is in the database")
     summary.set_defaults(func=cmd_summary)

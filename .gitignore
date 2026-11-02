@@ -216,3 +216,6 @@ _old_data/
 
 # Obsidian vault config (this folder is inside an Obsidian vault)
 .obsidian/
+
+# Generated bootstrap payload: derived bank data, regenerable
+bootstrap/merchants.txt
