@@ -358,9 +358,9 @@ Updated as implementation proceeds, per the convention at the top of this file.
 | 3 — schema + connection | ✅ done | DDL from spec §3, tables reordered so FK targets precede referrers; WAL + `foreign_keys=ON` |
 | 4 — fixture generator | ✅ done | `tests/fixtures/make_xls.py`; needed `xlwt` (deviation 1) |
 | 5 — `normalize.py` | ✅ done | **27 tests passing** |
-| 6 — `kinds.py` | ⏳ next | |
-| 7 — `identity.py` | ⬜ | |
-| 8 — `reader.py` | ⬜ | |
+| 6 — `kinds.py` | ✅ done | code table + text overrides as data; **18 tests** |
+| 7 — `identity.py` | ✅ done | full-row sha256; hash scheme pinned by test; **17 tests** |
+| 8 — `reader.py` | ⏳ next | |
 | 9 — `importer.py` | ⬜ | |
 | 10 — `cli.py` | ⬜ | |
 | 11 — real-file acceptance | ⬜ | D1–D4 |
