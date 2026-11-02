@@ -104,6 +104,9 @@ COL_DATE_VALUE: Final = "D. VALOR"
 COL_INCOME: Final = "INGRES (+)"
 COL_EXPENSE: Final = "DESPESA (-)"
 COL_BALANCE: Final = "SALDO (+)"
+#: Negative balances get their own column, populated on 5 of 10,034 real
+#: rows. Ignoring it would record those balances as missing.
+COL_BALANCE_NEG: Final = "SALDO (-)"
 COL_CODE_COMMON: Final = "CONCEPTE COMU"
 COL_CODE_OWN: Final = "CONCEPTE PROPI"
 COL_REFERENCE_2: Final = "REFERENCIA 2"

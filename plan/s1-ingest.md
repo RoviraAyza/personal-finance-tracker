@@ -361,10 +361,10 @@ Updated as implementation proceeds, per the convention at the top of this file.
 | 6 — `kinds.py` | ✅ done | code table + text overrides as data; **18 tests** |
 | 7 — `identity.py` | ✅ done | full-row sha256; hash scheme pinned by test; **17 tests** |
 | 8 — `reader.py` | ✅ done | header located not assumed; columns by normalised name; **19 tests**. Verified on both real files: 10,035/128 rows, 0 hash collisions |
-| 9 — `importer.py` | ⏳ next | |
-| 10 — `cli.py` | ⬜ | |
-| 11 — real-file acceptance | ⬜ | D1–D4 |
-| 12 — README, `CLAUDE.md` | ⬜ | |
+| 9 — `importer.py` | ✅ done | insert-or-ignore on row hash; rejections written out; **18 tests** |
+| 10 — `cli.py` | ✅ done | `init-db`, `import`, `import --dry-run`, `summary`; UTF-8 forced on stdout |
+| 11 — real-file acceptance | ✅ **D1–D4 met** | 10,034 inserted + 1 rejected; re-import 0/10,034; October +127; **totals reconcile to the cent against the raw files** |
+| 12 — README, `CLAUDE.md` | ⏳ next | |
 
 ### Deviations from the approved plan
 
@@ -383,3 +383,32 @@ Updated as implementation proceeds, per the convention at the top of this file.
    rows differing only in trailing blanks are the same row. The spec's
    "hash over all 25 source cells" (§4.3) should be read as "over all
    meaningful cells".
+
+### Acceptance evidence (2026-11-02)
+
+Independent reconciliation, reading the raw spreadsheets without going through
+the importer:
+
+| | rows | in | out |
+|---|---|---|---|
+| Raw spreadsheets | 10,161 | €274,613.03 | €273,968.64 |
+| Database | 10,161 | €274,613.03 | €273,968.64 |
+| **Difference** | **0** | **+0.00** | **+0.00** |
+
+Two findings from the acceptance run:
+
+1. **`transfer_own` is €267,342 in, not the €205,219 quoted during Stage 1.**
+   The earlier figure counted only rows whose label literally read
+   `TRASPASO PROPIO`. Code pair `02/067` also carries plain `TRASPASO`, and
+   the descriptions show 95 of those 113 rows come from the spouse and 18 from
+   the originator — household funding, correctly classified as own-transfers.
+   Only 3 rows (€105) remain genuinely ambiguous. The classification is more
+   correct than the original hand measurement; `intent.md` §3 should be read
+   with that correction.
+2. **The cash-withdrawal override fires 27 times**, lifting withdrawals from
+   the 369 that carry the withdrawal code to 396. Those 27 sat under the
+   card-purchase code with a `REINT.CAJERO` label — precisely the measured
+   impurity the override exists for.
+
+64 rows (0.6%) fall through to kind `other` across 10 unmapped code pairs, and
+are reported by the importer rather than absorbed.
