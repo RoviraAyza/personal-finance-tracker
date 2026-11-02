@@ -22,13 +22,28 @@ from typing import Sequence
 _SEP = "\x1f"
 
 
+def _without_trailing_blanks(cells: Sequence[str]) -> list[str]:
+    """Drop empty cells from the end of a row.
+
+    Excel does not store trailing empty columns, so the same export can report
+    24 or 25 columns depending on whether anything ever touched the last one.
+    Including them in the hash would make an identical transaction hash
+    differently between two such files and import twice. Dropping them is
+    safe: two rows that differ only in trailing blanks are the same row.
+    """
+    trimmed = [str(c).strip() for c in cells]
+    while trimmed and trimmed[-1] == "":
+        trimmed.pop()
+    return trimmed
+
+
 def row_hash(cells: Sequence[str], account_number: str) -> str:
     """A stable identifier for one source row.
 
     The account number participates so that the same figures appearing in two
     different accounts remain two different transactions.
     """
-    payload = _SEP.join([account_number.strip(), *(str(c).strip() for c in cells)])
+    payload = _SEP.join([account_number.strip(), *_without_trailing_blanks(cells)])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

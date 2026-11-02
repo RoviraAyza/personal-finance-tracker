@@ -129,9 +129,12 @@ def write_xls(
         current += 1
 
     if trailing_blank_row:
-        # The real export ends with a row that is entirely empty. Write a
-        # single empty string so the row exists in the sheet at all.
-        sheet.write(current, 0, "")
+        # The real export ends with a row that exists but carries nothing
+        # usable. Excel discards a cell written as "", so write a single
+        # space: the reader strips cells, so this still reads as empty, and
+        # the row is present to be rejected -- which is what the real file
+        # does, once per export.
+        sheet.write(current, 0, " ")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     book.save(str(path))

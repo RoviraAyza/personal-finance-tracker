@@ -360,8 +360,8 @@ Updated as implementation proceeds, per the convention at the top of this file.
 | 5 — `normalize.py` | ✅ done | **27 tests passing** |
 | 6 — `kinds.py` | ✅ done | code table + text overrides as data; **18 tests** |
 | 7 — `identity.py` | ✅ done | full-row sha256; hash scheme pinned by test; **17 tests** |
-| 8 — `reader.py` | ⏳ next | |
-| 9 — `importer.py` | ⬜ | |
+| 8 — `reader.py` | ✅ done | header located not assumed; columns by normalised name; **19 tests**. Verified on both real files: 10,035/128 rows, 0 hash collisions |
+| 9 — `importer.py` | ⏳ next | |
 | 10 — `cli.py` | ⬜ | |
 | 11 — real-file acceptance | ⬜ | D1–D4 |
 | 12 — README, `CLAUDE.md` | ⬜ | |
@@ -375,3 +375,11 @@ Updated as implementation proceeds, per the convention at the top of this file.
 3. **Schema table order changed** from the spec's listing so each foreign-key
    target is created before the table referencing it. No column changes; the
    spec's DDL is otherwise verbatim.
+4. **Row identity ignores trailing empty columns.** Found while building the
+   fixtures: Excel does not store trailing empty columns, so the same export
+   can report 24 or 25 columns. Hashing all cells blindly would make an
+   identical transaction hash two different ways between such files and import
+   twice. Trailing blanks are now trimmed before hashing — safe, since two
+   rows differing only in trailing blanks are the same row. The spec's
+   "hash over all 25 source cells" (§4.3) should be read as "over all
+   meaningful cells".

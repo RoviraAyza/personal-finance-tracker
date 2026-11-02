@@ -61,6 +61,23 @@ def test_surrounding_whitespace_is_irrelevant():
     assert row_hash(_cells(), f"  {ACCOUNT}  ") == row_hash(_cells(), ACCOUNT)
 
 
+def test_trailing_empty_columns_do_not_affect_identity():
+    # Excel does not store trailing empty columns, so the same export can
+    # report 24 or 25 columns. Without this, one transaction would hash two
+    # different ways and import twice.
+    short = _cells()
+    long = _cells() + ["", "", ""]
+    assert row_hash(short, ACCOUNT) == row_hash(long, ACCOUNT)
+
+
+def test_a_change_in_the_last_meaningful_cell_still_counts():
+    # Trimming trailing blanks must not swallow real content at the end.
+    baseline = _cells()
+    changed = _cells()
+    changed[24] = "SOMETHING"
+    assert row_hash(changed, ACCOUNT) != row_hash(baseline, ACCOUNT)
+
+
 def test_cells_cannot_run_together():
     # Joining with a separator matters: without one, ('AB','C') and ('A','BC')
     # would produce the same hash.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Mapping, Sequence
+from typing import Final, Mapping
 
 
 class RowError(ValueError):
@@ -84,22 +84,49 @@ class ImportResult:
         )
 
 
-def required_headers() -> Sequence[str]:
-    """Headers the importer cannot work without.
+# --------------------------------------------------------------------------
+# Column names
+# --------------------------------------------------------------------------
+#
+# Columns are addressed by NAME, never by position. The monthly export leaves
+# columns entirely empty that the historical one populates, so a layout
+# inferred from which columns carry data would break between files.
+#
+# Names are held in normalised form (upper-case, accents stripped) so that a
+# change in the bank's text encoding cannot stop us finding a column. The
+# normaliser used is ingest.normalize.normalize_description.
 
-    Checked by name, never by position: the monthly export leaves columns
-    entirely empty that the historical one populates, so the layout must come
-    from the header row rather than from which columns happen to carry data.
+COL_ACCOUNT: Final = "NUMERO DE COMPTE"
+COL_BRANCH: Final = "OFICINA"
+COL_CURRENCY: Final = "DIVISA"
+COL_DATE_OP: Final = "D. OPERACIO"
+COL_DATE_VALUE: Final = "D. VALOR"
+COL_INCOME: Final = "INGRES (+)"
+COL_EXPENSE: Final = "DESPESA (-)"
+COL_BALANCE: Final = "SALDO (+)"
+COL_CODE_COMMON: Final = "CONCEPTE COMU"
+COL_CODE_OWN: Final = "CONCEPTE PROPI"
+COL_REFERENCE_2: Final = "REFERENCIA 2"
+COL_DESCRIPTION: Final = "CONCEPTE COMPLEMENTARI 1"
+COL_TYPE_LABEL: Final = "CONCEPTE COMPLEMENTARI 9"
+
+#: Without these the file cannot be interpreted at all, so a missing one is a
+#: loud failure rather than a silent empty column.
+REQUIRED_COLUMNS: Final[tuple[str, ...]] = (
+    COL_ACCOUNT,
+    COL_DATE_OP,
+    COL_DATE_VALUE,
+    COL_INCOME,
+    COL_EXPENSE,
+    COL_CODE_COMMON,
+    COL_CODE_OWN,
+    COL_DESCRIPTION,
+)
+
+
+class FileFormatError(Exception):
+    """The workbook is not the export we know how to read.
+
+    Raised before any row is processed, so a changed bank format stops the
+    import rather than producing a partially-wrong database.
     """
-    return (
-        "Número de compte",
-        "D. Operació",
-        "D. Valor",
-        "Ingrés (+)",
-        "Despesa (-)",
-        "Saldo (+)",
-        "Concepte comú",
-        "Concepte propi",
-        "Concepte complementari 1",
-        "Concepte complementari 9",
-    )
