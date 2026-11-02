@@ -18,6 +18,11 @@ from pf.ingest.normalize import cents_to_text
 from pf.ingest.reader import describe
 from pf.bootstrap.prompt import write_payload
 from pf.ingest.reclassify import reclassify
+from pf.rules import coverage as coverage_mod
+from pf.rules.apply import apply_rules, sync_rule_set
+from pf.rules.categorizer import Categorizer
+from pf.rules.loader import load_rule_set
+from pf.rules.model import Candidate, RuleError
 
 
 def _force_utf8_output() -> None:
@@ -173,6 +178,146 @@ def cmd_bootstrap_prompt(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_categorizer():
+    categories, rules = load_rule_set()
+    return categories, rules, Categorizer(categories, rules)
+
+
+def cmd_rules_check(args: argparse.Namespace) -> int:
+    """Validate the rule set and report rules that do nothing."""
+    try:
+        categories, rules, categorizer = _load_categorizer()
+    except RuleError as err:
+        print("rule set is not usable:", file=sys.stderr)
+        print(f"  {err}", file=sys.stderr)
+        return 3
+
+    print(f"  categories  {len(categories)}")
+    print(f"  rules       {len(rules)}")
+
+    shadowed = categorizer.shadowed_rules()
+    print(f"  shadowed    {len(shadowed)}")
+    for earlier, later in shadowed[:10]:
+        print(
+            f"    {earlier.pattern!r} (p{earlier.priority}) hides "
+            f"{later.pattern!r} (p{later.priority})"
+        )
+
+    path = config.db_path()
+    if not path.exists():
+        print("  (no database, so unused rules cannot be checked)")
+        return 0
+
+    con = open_initialised(path)
+    try:
+        candidates = [
+            Candidate(
+                description_norm=row["description_norm"],
+                kind=row["kind"],
+                amount_cents=row["amount_cents"],
+            )
+            for row in con.execute(
+                "SELECT description_norm, kind, amount_cents FROM transactions"
+            )
+        ]
+    finally:
+        con.close()
+
+    unused = categorizer.unused_rules(candidates)
+    print(f"  unused      {len(unused)}   (a rule matching nothing is usually a typo)")
+    for rule in unused[:20]:
+        print(f"    {rule.pattern!r} ({rule.match}) -> {rule.category}")
+    return 0
+
+
+def cmd_categorize(args: argparse.Namespace) -> int:
+    """Apply the rule set to stored transactions."""
+    path = config.db_path()
+    if not path.exists():
+        print(f"no database at {path}", file=sys.stderr)
+        return 2
+    try:
+        categories, rules, categorizer = _load_categorizer()
+    except RuleError as err:
+        print("rule set is not usable:", file=sys.stderr)
+        print(f"  {err}", file=sys.stderr)
+        return 3
+
+    con = open_initialised(path)
+    try:
+        cat_ids, rule_ids = sync_rule_set(con, categories, rules)
+        result = apply_rules(
+            con, categorizer, cat_ids, rule_ids, only_uncategorised=not args.all
+        )
+    finally:
+        con.close()
+
+    print(f"  considered          {result.considered:>7,}")
+    print(f"  newly categorised   {result.assigned:>7,}")
+    print(f"  moved               {result.changed:>7,}")
+    print(f"  cleared             {result.cleared:>7,}   (rule no longer exists)")
+    print(f"  unchanged           {result.unchanged:>7,}")
+    print(f"  manual, untouched   {result.left_alone:>7,}")
+    print(f"  still uncategorised {result.still_uncategorised:>7,}")
+    return 0
+
+
+def cmd_coverage(args: argparse.Namespace) -> int:
+    """How much of the spending the rules explain."""
+    path = config.db_path()
+    if not path.exists():
+        print(f"no database at {path}", file=sys.stderr)
+        return 2
+
+    con = open_initialised(path)
+    try:
+        if args.holdout:
+            train, test = coverage_mod.measure_holdout(
+                con, train_to=args.train_to, test_from=args.test_from
+            )
+            print(
+                f"  rules fitted on data up to {args.train_to}, "
+                f"measured on {args.test_from} onwards"
+            )
+            print(
+                f"    fitted period  {train.rows_pct:5.1f}% rows  "
+                f"{train.value_pct:5.1f}% value   ({train.rows_total:,} rows)"
+            )
+            print(
+                f"    held out       {test.rows_pct:5.1f}% rows  "
+                f"{test.value_pct:5.1f}% value   ({test.rows_total:,} rows)"
+            )
+            return 0
+
+        if args.by_month:
+            print("  month     unknown / rows")
+            for month, unknown, total in coverage_mod.monthly_uncategorised(con):
+                print(f"  {month}   {unknown:>7,} / {total:>5,}")
+            return 0
+
+        m = coverage_mod.measure(con)
+        print("  outgoing transactions, excluding transfers between own accounts")
+        print(
+            f"    rows   {m.rows_categorised:>7,} / {m.rows_total:>7,}   "
+            f"{m.rows_pct:5.1f}%"
+        )
+        print(
+            f"    value  {cents_to_text(m.value_categorised_cents):>12} / "
+            f"{cents_to_text(m.value_total_cents):>12}   {m.value_pct:5.1f}%"
+        )
+        print()
+        print("  by category")
+        for name, n, value in m.by_category:
+            print(f"    {name:<28} {n:>6,} rows  {cents_to_text(value):>12}")
+        print()
+        print("  biggest uncategorised, by value -- the ones worth a rule")
+        for description, n, value in m.worst_uncategorised:
+            print(f"    {cents_to_text(value):>11}  {n:>4}x  {description[:38]}")
+        return 0
+    finally:
+        con.close()
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     path = config.db_path()
     if not path.exists() and str(path) != ":memory:":
@@ -269,6 +414,29 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", default="bootstrap", help="directory to write into (default: bootstrap)"
     )
     boot.set_defaults(func=cmd_bootstrap_prompt)
+
+    check = subs.add_parser("rules", help="validate the rule set")
+    check.add_argument("subcommand", nargs="?", default="check", choices=["check"])
+    check.set_defaults(func=cmd_rules_check)
+
+    categ = subs.add_parser("categorize", help="apply the rule set to transactions")
+    categ.add_argument(
+        "--all",
+        action="store_true",
+        help="re-apply to rows already categorised by rule (never to manual ones)",
+    )
+    categ.set_defaults(func=cmd_categorize)
+
+    covp = subs.add_parser("coverage", help="how much of the spending is explained")
+    covp.add_argument("--by-month", action="store_true", help="unknowns per month")
+    covp.add_argument(
+        "--holdout",
+        action="store_true",
+        help="measure rules against data they were not derived from",
+    )
+    covp.add_argument("--train-to", default="2024-12-31")
+    covp.add_argument("--test-from", default="2025-01-01")
+    covp.set_defaults(func=cmd_coverage)
 
     summary = subs.add_parser("summary", help="what is in the database")
     summary.set_defaults(func=cmd_summary)

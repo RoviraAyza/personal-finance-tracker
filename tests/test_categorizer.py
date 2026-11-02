@@ -159,6 +159,39 @@ def test_a_rule_without_a_kind_filter_applies_to_every_kind():
 
 
 # --------------------------------------------------------------------------
+# The `any` match type: structural fallbacks
+# --------------------------------------------------------------------------
+
+
+def test_any_matches_regardless_of_description():
+    c = make(Rule("*", "any", "Transfers", priority=900, kind_filter="transfer_person"))
+    assert c.categorize(cand("WHATEVER", kind="transfer_person")).category == "Transfers"
+
+
+def test_any_reaches_rows_with_no_description_at_all():
+    # 155 real rows have an empty description. Every other match type gives up
+    # on them, so this is the only way they can ever be categorised.
+    c = make(Rule("*", "any", "Transfers", priority=900, kind_filter="transfer_person"))
+    assert c.categorize(cand("", kind="transfer_person")).category == "Transfers"
+
+
+def test_any_still_respects_its_kind_filter():
+    c = make(Rule("*", "any", "Transfers", priority=900, kind_filter="transfer_person"))
+    assert c.categorize(cand("", kind="card_purchase")).category is None
+
+
+def test_a_merchant_rule_beats_a_structural_fallback():
+    # The fallback sits at priority 900 precisely so it never pre-empts a real
+    # merchant rule.
+    c = make(
+        Rule("MERCADONA", "contains", "Groceries", priority=100),
+        Rule("*", "any", "Transfers", priority=900),
+    )
+    assert c.categorize(cand("MERCADONA PLAZA")).category == "Groceries"
+    assert c.categorize(cand("ANYTHING ELSE")).category == "Transfers"
+
+
+# --------------------------------------------------------------------------
 # The known hazard, documented rather than wished away
 # --------------------------------------------------------------------------
 

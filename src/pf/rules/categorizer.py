@@ -17,6 +17,7 @@ import re
 from typing import Iterable, Sequence
 
 from pf.rules.model import (
+    ANY,
     CONTAINS,
     EXACT,
     NO_MATCH,
@@ -82,6 +83,12 @@ class Categorizer:
     def _matches(self, rule: Rule, candidate: Candidate) -> bool:
         if rule.kind_filter is not None and rule.kind_filter != candidate.kind:
             return False
+
+        # `any` ignores the description entirely, so it must be checked before
+        # the empty-description guard below: 155 real rows have no description
+        # and would otherwise be uncategorisable.
+        if rule.match == ANY:
+            return True
 
         text = candidate.description_norm
         if not text:

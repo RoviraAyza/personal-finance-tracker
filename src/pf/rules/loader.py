@@ -156,15 +156,27 @@ def load_rule_set(
 # --------------------------------------------------------------------------
 
 
-def _dump(path: Path, payload: dict[str, Any]) -> None:
-    """Write JSON deterministically.
+def _dump(path: Path, payload: dict[str, Any], *, list_key: str) -> None:
+    """Write JSON deterministically, one record per line.
 
-    Stable ordering and two-space indentation matter: these files live in git,
-    and a rule change should produce a one-line diff, not a reshuffle.
+    These files are meant to be read and hand-edited, and they live in git.
+    Standard `indent=2` explodes every rule across six lines, which makes a
+    337-rule file 1,700 lines long and turns a one-word change into a diff
+    nobody can scan. So the envelope is indented and each record is written
+    compactly on a single line.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
-    path.write_text(text, encoding="utf-8")
+    records = payload[list_key]
+    lines = [
+        "{",
+        f'  "version": {json.dumps(payload.get("version", FORMAT_VERSION))},',
+        f'  "{list_key}": [',
+    ]
+    for index, record in enumerate(records):
+        comma = "," if index < len(records) - 1 else ""
+        lines.append(f"    {json.dumps(record, ensure_ascii=False)}{comma}")
+    lines += ["  ]", "}"]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def save_categories(categories: Sequence[Category], path: Path | str = CATEGORIES_FILE) -> None:
@@ -177,6 +189,7 @@ def save_categories(categories: Sequence[Category], path: Path | str = CATEGORIE
                 for c in categories
             ],
         },
+        list_key="categories",
     )
 
 
@@ -195,4 +208,4 @@ def save_rules(rules: Sequence[Rule], path: Path | str = RULES_FILE) -> None:
         if rule.note:
             entry["note"] = rule.note
         payload.append(entry)
-    _dump(Path(path), {"version": FORMAT_VERSION, "rules": payload})
+    _dump(Path(path), {"version": FORMAT_VERSION, "rules": payload}, list_key="rules")

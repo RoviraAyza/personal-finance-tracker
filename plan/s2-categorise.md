@@ -360,12 +360,12 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
 | 1 — `model.py`, `loader.py` | ✅ done | all rule-set errors caught at load time with the offender named; **23 tests** |
 | 2 — `categorizer.py` | ✅ done | pure; first match wins by (priority, id); `explain()`, `unused_rules()`, `shadowed_rules()`; **27 tests** |
 | 3 — `bootstrap/prompt.py` | ✅ done | `pf bootstrap-prompt` writes the payload to files, sends nothing; **16 tests**, including assertions that no amounts, dates, account or card numbers are present |
-| 4 — run the bootstrap, review | ⏳ **awaiting Jose** | payload regenerated after the kind correction: **1,059 strings, 26 excluded**, audited clean (§12) |
-| 5 — `bootstrap/ingest.py` | ⬜ | |
-| 6 — `coverage.py` | ⬜ | |
-| 7 — `apply.py` | ⬜ | |
-| 8 — CLI commands | ⬜ | |
-| 9 — measure D1–D5, iterate | ⬜ | the acceptance moment |
+| 4 — run the bootstrap, review | ✅ done | 23 categories, 350 rules, by Claude Code in-session from the 1,059-string payload | payload regenerated after the kind correction: **1,059 strings, 26 excluded**, audited clean (§12) |
+| 5 — `bootstrap/ingest.py` | ➖ not needed | the model wrote the two JSON files directly; `loader.py` already validates them fully, so a separate ingest step would duplicate it |
+| 6 — `coverage.py` | ✅ done | rows + value, holdout, per-month; **12 tests** |
+| 7 — `apply.py` | ✅ done | manual decisions never overwritten; **14 tests** |
+| 8 — CLI commands | ✅ done | `rules check`, `categorize [--all]`, `coverage [--by-month|--holdout]` |
+| 9 — measure D1–D5, iterate | ✅ measured | **see §13 — the thresholds are not met, and the reason matters** |
 | 10 — `CLAUDE.md`, close | ⬜ | |
 
 ### Added beyond the plan
@@ -444,3 +444,80 @@ argument for the human-in-the-loop step existing at all.
 | **Sent** | **1,059** |
 | Audited absent | DNI, NIE, phone, card, account number, dates, amounts |
 | Family surnames present | 0 |
+
+---
+
+## 13. Verdict: the thresholds fail, and D5 was measuring the wrong thing
+
+### What the bootstrap achieved on its own
+
+| | result | target | |
+|---|---|---|---|
+| D1 rows | 85.9% (7,890 / 9,181) | ≥ 90% | ✗ |
+| D2 value | 88.9% (€231,970 / €260,795) | ≥ 95% | ✗ |
+| D3 unused rules | **0** | 0 | ✓ |
+| D4 holdout rows | 80.2% (fitted: 88.1%) | ≥ 85% | ✗ |
+| D5 unknown rows/month | median 21 | ≤ 15 | ✗ |
+
+### ⚠️ D5 was measuring the wrong thing
+
+D5 counted uncategorised **rows** per month. But the same unknown merchant
+reappears every month, and in real use it is triaged **once** and a rule covers
+it from then on. Simulating the actual workflow — a merchant is new only the
+first time it is ever seen — gives the true ongoing cost:
+
+**Median 4 new merchants per month. Mean 3.8. Worst month in two years: 8.**
+
+So D5's *intent* — "is the monthly ritual sustainable?" — passes decisively.
+Its *formulation* was wrong. The same error makes D4 pessimistic: the holdout
+simulates never updating the rules for two years, which is not how the tool
+will be used.
+
+**Correction for later slices:** the sustainability metric is *new distinct
+merchants per month*, not uncategorised rows per month.
+
+### The gap is irreducibly local knowledge
+
+303 distinct unknown merchants remain, and they are small local businesses
+whose nature cannot be inferred from the name with any confidence — bars,
+small shops, individual tradespeople. The bootstrap prompt instructed the model
+to leave anything doubtful alone rather than guess, and it did: `HECHOS Y
+DICHOS` (496 rows), `EL CALLEJON` (129 rows) and `EL RINCON` (152 rows) have no
+rule, because guessing would corrupt a total invisibly.
+
+What triage buys, measured:
+
+| Merchants triaged | rows | value | time at 15s each |
+|---|---|---|---|
+| 0 (bootstrap only) | 85.9% | 88.9% | — |
+| 20 | 92.8% | **95.0%** | 5 min |
+| **50** | **95.4%** | **97.2%** | **12 min** |
+| 100 | 96.5% | 98.6% | 25 min |
+
+**Twelve minutes of one-off triage clears both D1 and D2.**
+
+### Conclusion
+
+The approach works. Rules bootstrapped from history cover ~86% of rows and ~89%
+of value immediately; a short, one-off triage pass clears the thresholds; and
+the ongoing cost is about four decisions a month.
+
+What it does **not** support is the idea that a bootstrap alone is sufficient.
+The triage screen (S4) is not a convenience — it is the mechanism by which this
+tool reaches and stays at useful coverage. That is the main thing this slice
+establishes, and it was worth knowing before any UI was built.
+
+### Additions beyond the approved plan
+
+- **The `any` match type.** A rule that matches on transaction kind alone,
+  ignoring the description. Needed because 155 real rows have **no description
+  at all** and were otherwise uncategorisable by construction. Used only as a
+  priority-900 structural fallback, so merchant rules always win.
+- **`Categorizer.shadowed_rules()`** earned its place immediately: it caught
+  `ZARA` as a prefix rule swallowing `ZARAOPTICOS`, `ZARAFILMS` and
+  `ZARAGOZA P INDEPE`, which would have filed an optician and a car park under
+  Clothing.
+- **One-record-per-line JSON.** Standard `indent=2` turned a 350-rule file into
+  1,700 lines and made a one-word change an unreadable diff. The writer now
+  puts each rule on its own line.
+- **`bootstrap/ingest.py` was dropped** as redundant — see the progress log.

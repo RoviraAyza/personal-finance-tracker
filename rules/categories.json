@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "categories": [
+    {"name": "Groceries", "kind": "spending", "parent": null},
+    {"name": "Eating out", "kind": "spending", "parent": null},
+    {"name": "Transport", "kind": "spending", "parent": null},
+    {"name": "Fuel", "kind": "spending", "parent": "Transport"},
+    {"name": "Health", "kind": "spending", "parent": null},
+    {"name": "Education", "kind": "spending", "parent": null},
+    {"name": "Children", "kind": "spending", "parent": null},
+    {"name": "Clothing", "kind": "spending", "parent": null},
+    {"name": "Beauty and care", "kind": "spending", "parent": null},
+    {"name": "Home", "kind": "spending", "parent": null},
+    {"name": "Electronics", "kind": "spending", "parent": null},
+    {"name": "Sport", "kind": "spending", "parent": null},
+    {"name": "Entertainment", "kind": "spending", "parent": null},
+    {"name": "Travel", "kind": "spending", "parent": null},
+    {"name": "Books and stationery", "kind": "spending", "parent": null},
+    {"name": "Tobacco and lottery", "kind": "spending", "parent": null},
+    {"name": "Utilities", "kind": "spending", "parent": null},
+    {"name": "Online marketplace", "kind": "spending", "parent": null},
+    {"name": "Taxes and public services", "kind": "spending", "parent": null},
+    {"name": "Bank charges", "kind": "spending", "parent": null},
+    {"name": "Cash withdrawn", "kind": "spending", "parent": null},
+    {"name": "Transfers", "kind": "transfer", "parent": null},
+    {"name": "Bank reference", "kind": "excluded", "parent": null}
+  ]
+}

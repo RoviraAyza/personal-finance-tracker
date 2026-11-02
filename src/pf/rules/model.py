@@ -19,7 +19,13 @@ PREFIX: Final = "prefix"
 CONTAINS: Final = "contains"
 REGEX: Final = "regex"
 
-MATCH_TYPES: Final = frozenset({EXACT, PREFIX, CONTAINS, REGEX})
+#: Matches regardless of the description. Only useful with `kind_filter`, as a
+#: low-priority structural fallback: "anything the bank calls a person-to-person
+#: transfer belongs here". It is the only way to categorise the 155 real rows
+#: that have no description at all.
+ANY: Final = "any"
+
+MATCH_TYPES: Final = frozenset({EXACT, PREFIX, CONTAINS, REGEX, ANY})
 
 # --------------------------------------------------------------------------
 # Category kinds
