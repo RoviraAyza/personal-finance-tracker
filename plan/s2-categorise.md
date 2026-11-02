@@ -1,6 +1,6 @@
 # Plan — S2: Categorise
 
-**Status:** 🟡 Awaiting approval
+**Status:** 🟢 **APPROVED** 2026-11-02 — in progress
 **Slice:** S2 of 6 (see [`spec/spec.md`](../spec/spec.md) §13)
 **Author:** Claude (agent-written), for review by Jose
 **Date:** 2026-11-02
@@ -22,15 +22,15 @@ better to learn that now than after building two screens on top of it.
 
 ### Done when
 
-| # | Criterion | How it is checked |
-|---|---|---|
-| D1 | ≥ **90%** of rows categorised (excluding own-transfers) | `pf coverage` |
-| D2 | ≥ **95%** of the **€231,729** non-transfer outflow categorised | `pf coverage` |
-| D3 | **0** rules that match nothing in nine years | `pf rules check` |
-| D4 | **Holdout**: rules built from 2017–2024 cover ≥ 85% of 2025–2026 rows | `pf coverage --holdout` |
-| D5 | A typical month leaves ≤ **15** rows needing a human decision | `pf coverage --by-month` |
-| D6 | Re-running categorisation never overwrites a manual decision | test |
-| D7 | `python -m pytest` passes | one command |
+| #   | Criterion                                                             | How it is checked        |
+| --- | --------------------------------------------------------------------- | ------------------------ |
+| D1  | ≥ **90%** of rows categorised (excluding own-transfers)               | `pf coverage`            |
+| D2  | ≥ **95%** of the **€231,729** non-transfer outflow categorised        | `pf coverage`            |
+| D3  | **0** rules that match nothing in nine years                          | `pf rules check`         |
+| D4  | **Holdout**: rules built from 2017–2024 cover ≥ 85% of 2025–2026 rows | `pf coverage --holdout`  |
+| D5  | A typical month leaves ≤ **15** rows needing a human decision         | `pf coverage --by-month` |
+| D6  | Re-running categorisation never overwrites a manual decision          | test                     |
+| D7  | `python -m pytest` passes                                             | one command              |
 
 D4 is the honest test. D1–D2 measure how well rules fit data they were derived
 from, which always flatters. D4 asks whether they will work on *next month*.
@@ -47,11 +47,11 @@ the snapshot export, the second account. No transaction splitting.
 The spec says the bootstrap is a one-off, offline, LLM-assisted step. There are
 three ways to do that, and the choice matters more than it looks.
 
-| Option | Cost |
-|---|---|
-| Python script calling the Anthropic API | A new dependency, an API key to manage, money per run, and the payload is invisible to Jose |
-| Paste a prompt into claude.ai by hand | Free, uses his existing subscription, but the extraction is manual and unrepeatable |
-| **Generate the prompt as a file; a model fills it in; the answer is saved as `rules.json`** | **Chosen** |
+| Option                                                                                      | Cost                                                                                        |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Python script calling the Anthropic API                                                     | A new dependency, an API key to manage, money per run, and the payload is invisible to Jose |
+| Paste a prompt into claude.ai by hand                                                       | Free, uses his existing subscription, but the extraction is manual and unrepeatable         |
+| **Generate the prompt as a file; a model fills it in; the answer is saved as `rules.json`** | **Chosen**                                                                                  |
 
 ✅ **Chosen: the deterministic parts are code, the model call is a step.**
 
@@ -350,3 +350,30 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
 - [ ] The cash caveat is understood and acceptable
 - [ ] Work order agreed — prompt built and read before anything is sent
 - [ ] **Approved → implement S2**
+
+---
+
+## 11. Progress log
+
+| Step | State | Notes |
+|---|---|---|
+| 1 — `model.py`, `loader.py` | ✅ done | all rule-set errors caught at load time with the offender named; **23 tests** |
+| 2 — `categorizer.py` | ✅ done | pure; first match wins by (priority, id); `explain()`, `unused_rules()`, `shadowed_rules()`; **27 tests** |
+| 3 — `bootstrap/prompt.py` | ⏳ next | |
+| 4 — run the bootstrap, review | ⬜ | human-in-the-loop |
+| 5 — `bootstrap/ingest.py` | ⬜ | |
+| 6 — `coverage.py` | ⬜ | |
+| 7 — `apply.py` | ⬜ | |
+| 8 — CLI commands | ⬜ | |
+| 9 — measure D1–D5, iterate | ⬜ | the acceptance moment |
+| 10 — `CLAUDE.md`, close | ⬜ | |
+
+### Added beyond the plan
+
+- **`Categorizer.shadowed_rules()`** — detects the clear cases where an
+  earlier rule makes a later one unreachable (an earlier `contains` whose
+  pattern is inside a later rule's pattern). Not in the approved interface,
+  but it costs ten lines and catches the commonest rule-writing mistake:
+  adding a specific rule below a general one and wondering why it never fires.
+- **Category parent validation** — a missing or self-referential parent is a
+  load error. The plan did not mention nesting validation.
