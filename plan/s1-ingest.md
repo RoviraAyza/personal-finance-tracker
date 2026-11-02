@@ -1,6 +1,6 @@
 # Plan — S1: Parse → SQLite
 
-**Status:** 🟢 **APPROVED** 2026-11-02 — in progress
+**Status:** ✅ **COMPLETE** 2026-11-02 — all of D1–D6 met
 **Slice:** S1 of 6 (see [`spec/spec.md`](../spec/spec.md) §13)
 **Author:** Claude (agent-written), for review by Jose
 **Date:** 2026-11-02
@@ -364,7 +364,7 @@ Updated as implementation proceeds, per the convention at the top of this file.
 | 9 — `importer.py` | ✅ done | insert-or-ignore on row hash; rejections written out; **18 tests** |
 | 10 — `cli.py` | ✅ done | `init-db`, `import`, `import --dry-run`, `summary`; UTF-8 forced on stdout |
 | 11 — real-file acceptance | ✅ **D1–D4 met** | 10,034 inserted + 1 rejected; re-import 0/10,034; October +127; **totals reconcile to the cent against the raw files** |
-| 12 — README, `CLAUDE.md` | ⏳ next | |
+| 12 — README, `CLAUDE.md` | ✅ done | `CLAUDE.md` kept under a page per playbook 3b |
 
 ### Deviations from the approved plan
 
