@@ -85,15 +85,36 @@ def test_two_identical_looking_purchases_both_survive(con, tmp_path):
 # --------------------------------------------------------------------------
 
 
-def test_rejections_are_counted_and_written(con, tmp_path):
+def test_a_blank_trailing_row_alone_writes_no_rejects_file(con, tmp_path):
+    # Every export ends with one blank row. Writing a CSV for that alone would
+    # litter a useless file after every single import.
     rejects = tmp_path / "rejects"
     path = simple_file(tmp_path / "a.xls")
     result = import_file(path, con, rejects_dir=rejects)
     assert result.rejected == 1
     assert result.rejections[0].reason == "empty_row"
+    assert result.rejects_path is None
+    assert not rejects.exists()
+
+
+def test_real_rejections_are_counted_and_written(con, tmp_path):
+    # Anything rejected for a reason worth investigating does get written out.
+    rejects = tmp_path / "rejects"
+    path = write_xls(
+        tmp_path / "bad.xls",
+        [
+            row(date_op="04/06/2026", description="GOOD", expense=1.0, balance=10.0),
+            row(date_op="not-a-date", description="BAD", expense=1.0, balance=9.0),
+        ],
+    )
+    result = import_file(path, con, rejects_dir=rejects)
+    assert result.rejected == 2                 # the bad date and the blank row
+    assert result.rejects_path is not None
     written = list(rejects.glob("rejects-*.csv"))
     assert len(written) == 1
-    assert "empty_row" in written[0].read_text(encoding="utf-8")
+    body = written[0].read_text(encoding="utf-8")
+    assert "bad_date" in body
+    assert "empty_row" in body                  # still listed, just not alone
 
 
 def test_a_row_with_no_amount_is_rejected_not_stored(con, tmp_path):

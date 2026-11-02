@@ -224,7 +224,10 @@ def import_file(
             ),
         )
         con.commit()
-        if result.rejections:
+        # Every export ends with one blank row, so writing a rejects file for
+        # that alone would leave a useless CSV behind after every import. Only
+        # write when something was rejected for a reason worth looking at.
+        if any(r.reason != "empty_row" for r in result.rejections):
             result.rejects_path = str(_write_rejects(result, rejects_dir))
 
     return result
