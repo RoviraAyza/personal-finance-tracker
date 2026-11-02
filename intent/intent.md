@@ -517,6 +517,9 @@ Blocking:
 | 2026-11-02 | Tauri deferred, not rejected | It hosts a web frontend, so the React UI can be wrapped later. Adopting it now would mean rewriting the working parser in Rust — a second new language serving neither goal |
 | 2026-11-02 | Budgeting and forecasting out of scope for v1 | Needs expected-vs-actual, a second data model and interface; the named risk is not finishing. Agent's assumption, open to veto |
 | 2026-11-01 | Repo stays local for now; nothing pushed to GitHub | `main` on the remote still holds v1 and `intent/` is unpushed. The repo is public and these artifacts describe the family's finances in detail. Revisit by making the repo private and pushing — explicitly deferred, not decided against |
+| 2026-11-02 | Cash withdrawals shown as their own category, destination unknown | Originator: *"money is fine to be shown as money"*. 396 withdrawals, €37,970 over nine years = 16% of explainable outflow. Honest reporting of a real blind spot beats hiding it |
+| 2026-11-02 | Bootstrap payload excludes descriptions that only ever appear on transfer rows | 33 of 1,086 — and they are where the family's names live. The bank's type codes already identify those rows, so the names are useless to categorisation: excluding them costs nothing and is not a trade against accuracy. 1,052 merchant strings remain as the corpus |
+| 2026-11-02 | Originator accepts sending merchant strings to a model | His call. Note his stated reasoning (*"it's already in the hands of a private company"*) is not quite equivalent — a bank holds it under a regulated, deletable banking relationship — but the conclusion stands on the payload being minimal and the risk low |
 
 ---
 
