@@ -1,6 +1,6 @@
 # Intent: Personal Finance Tracker
 
-**Status:** 🟡 Draft — in conversation
+**Status:** ✅ **APPROVED** 2026-11-02 — superseded by `spec.md` for design detail
 **Originator:** Jose (@RoviraAyza)
 **Started:** 2026-11-01
 
@@ -526,7 +526,7 @@ Blocking:
       two corrections that reversed agent conclusions (saved filters are
       first-class; nothing carried over from the previous attempt)
 - [x] All blocking open questions resolved (Q1–Q7). Q8–Q9 are non-blocking.
-- [ ] **Ready to advance to `spec.md`** — awaiting the originator's approval
+- [x] **Ready to advance to `spec.md`** — ✅ approved by the originator, 2026-11-02
 
 **One question never asked:** budgeting and forecasting. Everything in this
 document is about *understanding* past spending, not steering future spending.
