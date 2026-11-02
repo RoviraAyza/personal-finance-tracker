@@ -112,9 +112,9 @@ CREATE TABLE categories (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,
     parent_id   INTEGER REFERENCES categories(id),
-    kind        TEXT NOT NULL DEFAULT 'spending'
-                -- 'spending' | 'income' | 'transfer' | 'excluded'
-                -- 'transfer' and 'excluded' are omitted from spend analysis
+    -- 'spending' | 'income' | 'transfer' | 'excluded'
+    -- 'transfer' and 'excluded' are omitted from spend analysis
+    kind        TEXT NOT NULL DEFAULT 'spending',
     sort_order  INTEGER NOT NULL DEFAULT 0
 );
 
