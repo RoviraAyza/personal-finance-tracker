@@ -360,7 +360,7 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
 | 1 — `model.py`, `loader.py` | ✅ done | all rule-set errors caught at load time with the offender named; **23 tests** |
 | 2 — `categorizer.py` | ✅ done | pure; first match wins by (priority, id); `explain()`, `unused_rules()`, `shadowed_rules()`; **27 tests** |
 | 3 — `bootstrap/prompt.py` | ✅ done | `pf bootstrap-prompt` writes the payload to files, sends nothing; **16 tests**, including assertions that no amounts, dates, account or card numbers are present |
-| 4 — run the bootstrap, review | ⏳ **awaiting Jose** | payload generated: 1,053 strings, 33 excluded |
+| 4 — run the bootstrap, review | ⏳ **awaiting Jose** | payload regenerated after the kind correction: **1,059 strings, 26 excluded**, audited clean (§12) |
 | 5 — `bootstrap/ingest.py` | ⬜ | |
 | 6 — `coverage.py` | ⬜ | |
 | 7 — `apply.py` | ⬜ | |
@@ -383,3 +383,64 @@ outcome, not a defect. Agreed with Jose 2026-11-02.
   example and the test caught it, so the examples are now placeholders.
 - **`bootstrap/merchants.txt` is gitignored** — derived bank data, and
   regenerable from the database. `prompt.md` is data-free and committed.
+- **`pf reclassify`** and two new transaction kinds — see §12.
+- **Identifier redaction** in the payload — see §12.
+
+---
+
+## 12. Mid-slice correction: the kind mapping was wrong
+
+Found at step 4, while reviewing the generated payload. Recorded here because
+it changed the data model, not just the payload.
+
+### What was wrong
+
+`03`/`038`, `03`/`005`, `03`/`033`, `03`/`034` were classified as
+`transfer_person` — "money sent to a person". They are **direct debits**. The
+type-label column on those rows carries a *person's* name, which is the
+account holder being **debited**; the payee is the company in the description,
+behind the bank's `CORE` prefix. 296 rows, €20,572 over nine years: school
+catering, electricity, council vehicle tax, language classes, a basketball
+club.
+
+Totals were unaffected — both kinds count as spending — but the labels were
+misleading, and `direct_debit` is a category the originator will want.
+
+### What changed
+
+- **Two new kinds**: `direct_debit` and `transfer_in`.
+- **21 code pairs mapped** (was 12). **No unmapped pairs remain** in nine years
+  of data, so the importer's long-tail report is now empty.
+- **`pf reclassify`** re-derives every row's kind from the stored source codes.
+  Not in the approved plan. It is possible *only* because `code_common`,
+  `code_own` and `type_label` are stored raw alongside the derived kind — the
+  payoff of that S1 decision. 386 of 10,161 rows corrected.
+- **Redaction added to the payload**: DNI, NIE and Spanish phone numbers are
+  stripped from merchant descriptions. Company tax IDs (CIF) are deliberately
+  kept — public register data that identifies a business and helps the model.
+
+### Two near-misses worth recording
+
+1. **A dropped mapping.** Rewriting `_CODE_MAP` silently lost `02`/`032` and
+   `99`/`067`, which would have moved 47 rows to `other`. Caught by
+   `pf reclassify --dry-run` before anything was written. The dry run paid for
+   itself the first time it was used.
+2. **A one-row privacy leak.** `transfer_in` was added as a kind and *not*
+   added to the payload's exclusion list. A single incoming transfer was then
+   enough to put a family member's name into a payload of a thousand strings.
+   Caught by reading the regenerated file. There is now a test naming this
+   exact scenario, and a comment in `prompt.py` saying that any new
+   transfer-shaped kind belongs in that list.
+
+Both were found by *looking at output*, not by the test suite — which is the
+argument for the human-in-the-loop step existing at all.
+
+### Payload after the correction
+
+| | |
+|---|---|
+| Distinct descriptions | 1,086 |
+| Excluded (transfer-only) | 26 |
+| **Sent** | **1,059** |
+| Audited absent | DNI, NIE, phone, card, account number, dates, amounts |
+| Family surnames present | 0 |

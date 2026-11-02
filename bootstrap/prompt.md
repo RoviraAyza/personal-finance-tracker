@@ -2,7 +2,7 @@
 
 You are helping set up a personal finance tracker for one household in Spain.
 
-Attached (`merchants.txt`) are **1053 distinct merchant description
+Attached (`merchants.txt`) are **1059 distinct merchant description
 strings**, taken from nine years of one joint current account used for everyday
 household expenses. They are the complete vocabulary of places this family
 spends money.

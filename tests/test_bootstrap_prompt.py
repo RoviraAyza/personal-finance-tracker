@@ -11,7 +11,12 @@ import re
 
 import pytest
 
-from pf.bootstrap.prompt import build_prompt, collect_merchants, write_payload
+from pf.bootstrap.prompt import (
+    build_prompt,
+    collect_merchants,
+    redact,
+    write_payload,
+)
 from pf.db.connection import open_initialised
 
 ACCOUNT = "2100 9999 11 2200536981"
@@ -87,6 +92,18 @@ def test_descriptions_only_ever_on_transfer_rows_are_excluded(con):
     assert payload.total_distinct == 3
 
 
+def test_incoming_transfers_also_count_as_transfers_for_exclusion(con):
+    # A real near-miss: `transfer_in` was added as a kind and left out of the
+    # exclusion list. One single incoming transfer was then enough to expose a
+    # family member's name in a payload of a thousand strings. Any new
+    # transfer-shaped kind must be added to _TRANSFER_KINDS.
+    add(con, "A FAMILY NAME", kind="transfer_person")
+    add(con, "A FAMILY NAME", kind="transfer_in", cents=5000)
+    add(con, "MERCADONA")
+    payload = collect_merchants(con)
+    assert payload.merchants == ("MERCADONA",)
+
+
 def test_a_description_seen_on_both_kinds_is_kept(con):
     # If it ever appears as a real purchase, the model should see it.
     add(con, "AMBIGUOUS NAME", kind="transfer_person")
@@ -124,6 +141,80 @@ def test_no_card_numbers_reach_the_payload(con, tmp_path):
     con.execute("UPDATE transactions SET counterparty_ref = '4766645938385471'")
     _, merchants_path, _ = write_payload(con, tmp_path)
     assert "4766645938385471" not in merchants_path.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
+# Redaction of personal identifiers
+#
+# Every case below was found by READING the generated payload, which is the
+# reason the payload is written to a file and reviewed before being sent.
+# --------------------------------------------------------------------------
+
+
+def test_a_dni_is_stripped_from_a_description():
+    # Spanish national identity number: 8-9 digits plus a control letter.
+    assert redact("ANA EXAMPLE SURNAME 029119795R") == "ANA EXAMPLE SURNAME"
+    assert redact("SOME NAME 73388291Y") == "SOME NAME"
+
+
+def test_an_nie_is_stripped():
+    # The foreigner equivalent: X/Y/Z, 7 digits, a letter.
+    assert redact("SOMEONE X1234567L") == "SOMEONE"
+
+
+def test_a_phone_number_is_stripped():
+    assert redact("TELEFONO NUM: 645350001 REC. ORANGE BD") == "TELEFONO NUM: REC. ORANGE BD"
+
+
+def test_a_company_tax_id_is_kept():
+    # A CIF identifies a business, is public register data, and helps the model
+    # recognise the company. Deliberately not redacted.
+    assert redact("DX COMPUTER SL B50514470") == "DX COMPUTER SL B50514470"
+    assert redact("BASKET CLUB EXAMPLE G12324737") == "BASKET CLUB EXAMPLE G12324737"
+
+
+def test_branch_numbers_in_shop_names_are_kept():
+    # 'EL ARBOL 5228' -- the number is part of the merchant identity.
+    assert redact("EL ARBOL 5228") == "EL ARBOL 5228"
+    assert redact("DIA 6438") == "DIA 6438"
+
+
+def test_ordinary_merchant_names_are_untouched():
+    for name in ["MERCADONA PLAZA D", "BON AREA", "CAFETERIA EL OLIV"]:
+        assert redact(name) == name
+
+
+def test_redaction_only_removes_so_patterns_still_match():
+    # A rule written against the redacted form must still match the stored
+    # description with `contains` or `prefix`.
+    original = "ANA EXAMPLE SURNAME 029119795R"
+    assert redact(original) in original
+
+
+def test_redactions_are_counted(con, tmp_path):
+    add(con, "SOME NAME 73388291Y")
+    add(con, "MERCADONA")
+    payload = collect_merchants(con)
+    assert payload.redacted == 1
+    assert "SOME NAME" in payload.merchants
+
+
+def test_identifiers_do_not_reach_the_written_payload(con, tmp_path):
+    add(con, "ANA EXAMPLE SURNAME 029119795R")
+    add(con, "TELEFONO NUM: 645350001 REC. ORANGE BD")
+    _, merchants_path, _ = write_payload(con, tmp_path)
+    body = merchants_path.read_text(encoding="utf-8")
+    assert "029119795R" not in body
+    assert "645350001" not in body
+
+
+def test_redaction_can_merge_two_descriptions_into_one(con):
+    # 'NAME 1234567A' and 'NAME 7654321B' both redact to 'NAME'. Deduplicating
+    # after redaction is correct: the model should see one string, not two.
+    add(con, "SAME NAME 12345678A")
+    add(con, "SAME NAME 87654321B")
+    payload = collect_merchants(con)
+    assert payload.merchants == ("SAME NAME",)
 
 
 # --------------------------------------------------------------------------

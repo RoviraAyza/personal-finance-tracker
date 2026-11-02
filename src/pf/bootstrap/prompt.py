@@ -13,14 +13,49 @@ already identify without reading a name.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-#: Kinds whose counterparty is a person rather than a merchant.
-_TRANSFER_KINDS = ("transfer_person", "transfer_own")
+#: Kinds whose counterparty is a person or an account rather than a merchant.
+#: A description seen ONLY on these is excluded from the payload.
+#:
+#: `transfer_in` was missing from this list when it was first added as a kind,
+#: and one single incoming transfer was enough to expose a family member's
+#: name in a payload of a thousand strings. Any new transfer-shaped kind
+#: belongs here.
+_TRANSFER_KINDS = ("transfer_person", "transfer_own", "transfer_in")
 
 TARGET_CATEGORY_COUNT = "15 to 25"
+
+# Identifiers that turn up inside merchant descriptions and must not leave the
+# machine. Found by reading the generated payload, which is why the payload is
+# written to a file and reviewed before being sent.
+#
+#   DNI    8 digits + a control letter, sometimes zero-padded to 9
+#   NIE    X, Y or Z + 7 digits + a letter
+#   phone  a Spanish mobile or landline, 9 digits beginning 6, 7, 8 or 9
+#
+# Company tax IDs (CIF) are deliberately NOT redacted: they are public
+# register data, they identify a business rather than a person, and leaving
+# them in helps the model recognise the company.
+_REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b\d{8,9}[A-Z]\b"), ""),        # DNI
+    (re.compile(r"\b[XYZ]\d{7}[A-Z]\b"), ""),     # NIE
+    (re.compile(r"\b[6789]\d{8}\b"), ""),         # Spanish phone number
+)
+
+
+def redact(text: str) -> str:
+    """Strip personal identifiers from a merchant description.
+
+    Only ever removes characters, so a pattern written against the redacted
+    form still matches the stored description with `contains` or `prefix`.
+    """
+    for pattern, replacement in _REDACTIONS:
+        text = pattern.sub(replacement, text)
+    return re.sub(r"\s+", " ", text).strip(" :,-")
 
 
 @dataclass(frozen=True)
@@ -30,6 +65,7 @@ class Payload:
     merchants: tuple[str, ...]
     excluded_transfer_only: int
     total_distinct: int
+    redacted: int = 0
 
     @property
     def count(self) -> int:
@@ -57,12 +93,23 @@ def collect_merchants(con: sqlite3.Connection) -> Payload:
         _TRANSFER_KINDS,
     ).fetchall()
 
-    keep = sorted(r["d"] for r in rows if r["transfers"] < r["n"])
+    kept_raw = [r["d"] for r in rows if r["transfers"] < r["n"]]
     excluded = sum(1 for r in rows if r["transfers"] == r["n"])
+
+    redacted_count = 0
+    cleaned: set[str] = set()
+    for value in kept_raw:
+        clean = redact(value)
+        if clean != value:
+            redacted_count += 1
+        if clean:
+            cleaned.add(clean)
+
     return Payload(
-        merchants=tuple(keep),
+        merchants=tuple(sorted(cleaned)),
         excluded_transfer_only=excluded,
         total_distinct=len(rows),
+        redacted=redacted_count,
     )
 
 

@@ -19,7 +19,7 @@ from pf.ingest.kinds import derive_kind, is_spending
         ("02", "067", kinds.TRANSFER_OWN),
         ("11", "040", kinds.CASH_WITHDRAWAL),
         ("04", "002", kinds.TRANSFER_PERSON),
-        ("03", "038", kinds.TRANSFER_PERSON),
+        ("03", "038", kinds.DIRECT_DEBIT),
         ("04", "067", kinds.TRANSFER_OWN),
         ("02", "040", kinds.REFUND),
     ],
@@ -68,6 +68,32 @@ def test_card_fee_is_recognised():
     assert kind == kinds.FEE
 
 
+def test_direct_debits_are_not_mistaken_for_person_transfers():
+    # CORRECTED 2026-11-02. Codes 03/xxx carry a person's name in the label --
+    # but that person is the account holder being DEBITED, not the payee. The
+    # payee is the company in the description. 296 real rows, 20,572 EUR:
+    # school catering, electricity, council tax, language classes.
+    for own in ["038", "005", "033", "034", "006"]:
+        kind, mapped = derive_kind("03", own, "MEN OLAYA PEYRONA NAVALLAS")
+        assert kind == kinds.DIRECT_DEBIT, f"03/{own}"
+        assert mapped is True
+
+
+def test_bank_charges_are_fees():
+    assert derive_kind("17", "036", "MANTENIMIENTO")[0] == kinds.FEE
+    assert derive_kind("17", "040", "COSTE USO CAJERO")[0] == kinds.FEE
+
+
+def test_incoming_third_party_transfers_have_their_own_kind():
+    assert derive_kind("02", "002")[0] == kinds.TRANSFER_IN
+    assert derive_kind("02", "048")[0] == kinds.TRANSFER_IN
+
+
+def test_council_tax_and_card_products_are_direct_debits():
+    assert derive_kind("17", "016")[0] == kinds.DIRECT_DEBIT
+    assert derive_kind("12", "044", "MEN OLAYA PEYRONA")[0] == kinds.DIRECT_DEBIT
+
+
 def test_a_persons_name_in_the_label_does_not_trigger_an_override():
     # On person-to-person transfers this column holds a name, not a type.
     # The overrides must be specific enough not to match a surname.
@@ -100,7 +126,7 @@ def test_missing_label_falls_back_to_the_code_table():
 
 
 def test_own_transfers_are_not_spending():
-    # 205,219 EUR in / 5,773 EUR out over nine years. Counting these as
+    # 267,342 EUR in / 11,004 EUR out over nine years. Counting these as
     # spending or income is the single largest distortion available.
     assert is_spending(kinds.TRANSFER_OWN) is False
 
@@ -113,8 +139,10 @@ def test_cash_deposits_are_not_spending():
     "kind",
     [
         kinds.CARD_PURCHASE,
+        kinds.DIRECT_DEBIT,
         kinds.CASH_WITHDRAWAL,
         kinds.TRANSFER_PERSON,
+        kinds.TRANSFER_IN,
         kinds.REFUND,
         kinds.FEE,
         kinds.OTHER,
@@ -130,6 +158,8 @@ def test_the_vocabulary_is_exactly_these_kinds():
     # Pinned, so adding a kind is a deliberate act that updates this list.
     assert kinds.ALL_KINDS == {
         "card_purchase",
+        "direct_debit",
+        "transfer_in",
         "cash_withdrawal",
         "cash_deposit",
         "transfer_own",

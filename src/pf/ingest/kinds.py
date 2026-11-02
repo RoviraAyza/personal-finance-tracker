@@ -1,7 +1,7 @@
 """What sort of movement a row represents.
 
 Not every row is spending. Counting a transfer between the household's own
-accounts as spending would add 205,219 EUR of phantom money over nine years,
+accounts as spending would add 267,342 EUR of phantom money over nine years,
 so the kind has to be derived before anything is totalled.
 
 The derivation is a lookup table plus a short list of text overrides, kept as
@@ -21,6 +21,8 @@ from pf.ingest.normalize import normalize_description
 # --------------------------------------------------------------------------
 
 CARD_PURCHASE: Final = "card_purchase"
+DIRECT_DEBIT: Final = "direct_debit"
+TRANSFER_IN: Final = "transfer_in"
 CASH_WITHDRAWAL: Final = "cash_withdrawal"
 CASH_DEPOSIT: Final = "cash_deposit"
 TRANSFER_OWN: Final = "transfer_own"
@@ -32,6 +34,8 @@ OTHER: Final = "other"
 ALL_KINDS: Final = frozenset(
     {
         CARD_PURCHASE,
+        DIRECT_DEBIT,
+        TRANSFER_IN,
         CASH_WITHDRAWAL,
         CASH_DEPOSIT,
         TRANSFER_OWN,
@@ -58,15 +62,49 @@ _CODE_MAP: Final[dict[tuple[str, str], str]] = {
     ("12", "040"): CARD_PURCHASE,     # 8,125 rows -- COMPRA CON TARJETA
     ("02", "067"): TRANSFER_OWN,      #   630 rows -- TRASPASO PROPIO / TRASPASO
     ("11", "040"): CASH_WITHDRAWAL,   #   369 rows -- REINT.CAJERO / CAJERO AJENO
-    ("04", "002"): TRANSFER_PERSON,   #   267 rows -- counterparty is a person
-    ("03", "038"): TRANSFER_PERSON,   #   157 rows -- counterparty is a person
+    ("04", "002"): TRANSFER_PERSON,   #   267 rows -- Bizum; 'Name;Surname;Surname'
     ("04", "067"): TRANSFER_OWN,      #   138 rows -- TRASPASO PROPIO
     ("02", "040"): REFUND,            #   126 rows -- DEVOLUCION COMPRA
-    ("03", "005"): TRANSFER_PERSON,   #    67 rows
-    ("03", "033"): TRANSFER_PERSON,   #    26 rows
-    ("99", "067"): TRANSFER_PERSON,   #    23 rows
-    ("02", "032"): TRANSFER_PERSON,   #    21 rows
-    ("03", "034"): TRANSFER_PERSON,   #    21 rows
+
+    # Direct debits (domiciliaciones). CORRECTED 2026-11-02: these were
+    # originally read as person-to-person transfers because the type-label
+    # column holds a PERSON'S NAME -- but that person is the account holder
+    # being debited, not the payee. The payee is in the description, with the
+    # bank's 'CORE' prefix: school catering, electricity, council tax,
+    # language classes. 296 rows, 20,572 EUR over nine years.
+    ("03", "038"): DIRECT_DEBIT,      #   158 rows
+    ("03", "005"): DIRECT_DEBIT,      #    67 rows
+    ("03", "033"): DIRECT_DEBIT,      #    28 rows
+    ("03", "034"): DIRECT_DEBIT,      #    23 rows
+    ("03", "006"): DIRECT_DEBIT,      #     8 rows -- a mobile operator
+    ("12", "044"): DIRECT_DEBIT,      #     8 rows -- a card product
+    ("17", "016"): DIRECT_DEBIT,      #     7 rows -- council vehicle tax
+
+    # Bank's own charges.
+    ("17", "036"): FEE,               #    13 rows -- overdraft, maintenance
+    ("17", "040"): FEE,               #     1 row  -- COSTE USO CAJERO
+
+    # Money arriving from a third party (company, club, refund of a fee).
+    ("02", "002"): TRANSFER_IN,       #    17 rows, all incoming
+    ("02", "048"): TRANSFER_IN,       #     1 row
+    ("02", "036"): REFUND,            #     7 rows -- COND. MANTENIMIENTO
+    ("98", "040"): REFUND,            #     1 row  -- ANUL.OPERACION TARJ
+    ("02", "032"): TRANSFER_IN,       #    24 rows -- all incoming, via a
+                                      #               payment processor
+                                      #               (proceeds of selling
+                                      #               second-hand items)
+    ("99", "067"): TRANSFER_OWN,      #    23 rows -- all outgoing, 20 of them
+                                      #               to the household's own or
+                                      #               the spouse's accounts.
+                                      #               KNOWN IMPRECISION: two of
+                                      #               the 23 are not own
+                                      #               transfers (a phone top-up
+                                      #               and a generic transfer),
+                                      #               so they are excluded from
+                                      #               spend when they should
+                                      #               not be. Two rows in
+                                      #               10,161; recorded rather
+                                      #               than contorting the map.
 }
 
 
@@ -90,6 +128,8 @@ _TEXT_OVERRIDES: Final[tuple[tuple[str, str], ...]] = (
     ("TRASPASO PROPIO", TRANSFER_OWN),
     ("TRASP. PROPIO", TRANSFER_OWN),
     ("CUOTA TARJETA", FEE),
+    ("COSTE USO CAJERO", FEE),
+    ("CANCELAC.PRESTAMO", OTHER),
     ("COMPRA CON TARJETA", CARD_PURCHASE),
 )
 

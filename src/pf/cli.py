@@ -17,6 +17,7 @@ from pf.ingest.model import FileFormatError, ImportResult
 from pf.ingest.normalize import cents_to_text
 from pf.ingest.reader import describe
 from pf.bootstrap.prompt import write_payload
+from pf.ingest.reclassify import reclassify
 
 
 def _force_utf8_output() -> None:
@@ -107,6 +108,40 @@ def cmd_import(args: argparse.Namespace) -> int:
         con.close()
 
     _print_result(result, dry_run=args.dry_run)
+    return 0
+
+
+def cmd_reclassify(args: argparse.Namespace) -> int:
+    """Re-derive every transaction's kind from its stored source codes."""
+    path = config.db_path()
+    if not path.exists():
+        print(f"no database at {path}", file=sys.stderr)
+        return 2
+
+    con = open_initialised(path)
+    try:
+        result = reclassify(con, dry_run=args.dry_run)
+    finally:
+        con.close()
+
+    label = "would change" if args.dry_run else "changed"
+    print(f"  considered   {result.considered:>7,}")
+    print(f"  {label:<12} {result.changed:>7,}")
+    print(f"  unchanged    {result.unchanged:>7,}")
+
+    if result.transitions:
+        print()
+        print("  reclassifications:")
+        for (old, new), count in result.transitions.most_common():
+            print(f"    {count:>6,}  {old}  ->  {new}")
+
+    print()
+    if result.unmapped_codes:
+        print(f"  still unmapped ({result.unmapped:,} rows):")
+        for (common, own), count in result.unmapped_codes.most_common(10):
+            print(f"    {count:>6,}  codes {common}/{own}")
+    else:
+        print("  no unmapped code pairs remain")
     return 0
 
 
@@ -216,6 +251,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="parse and report without writing anything",
     )
     imp.set_defaults(func=cmd_import)
+
+    recl = subs.add_parser(
+        "reclassify",
+        help="re-derive transaction kinds after the mapping has been corrected",
+    )
+    recl.add_argument(
+        "--dry-run", action="store_true", help="report without writing"
+    )
+    recl.set_defaults(func=cmd_reclassify)
 
     boot = subs.add_parser(
         "bootstrap-prompt",
