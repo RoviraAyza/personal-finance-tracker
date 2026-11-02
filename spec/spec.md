@@ -1,6 +1,6 @@
 # Spec: Personal Finance Tracker — Step 1 (Desktop)
 
-**Status:** 🟡 Draft — awaiting review
+**Status:** ✅ **APPROVED** 2026-11-02
 **Author:** Claude (agent-written), for review and correction by Jose
 **Date:** 2026-11-02
 **Derives from:** [`intent/intent.md`](../intent/intent.md) (approved 2026-11-02)
@@ -66,13 +66,13 @@ per-person attribution · packaging as an installer (Tauri/Electron).
 
 **Stack**
 
-| Layer | Choice | Rationale |
-|---|---|---|
-| Parsing | Python + `xlrd` 2.0.1 | Already verified against the real file |
-| Store | SQLite | Single user, single machine, zero setup |
-| API | FastAPI + Pydantic | Typed request/response; the typing will feel familiar coming from ABAP |
-| UI | React + TypeScript (Vite) | The learning payload; carries into React Native for step 2 |
-| Tests | pytest + Vitest | One command per side |
+| Layer   | Choice                    | Rationale                                                              |
+| ------- | ------------------------- | ---------------------------------------------------------------------- |
+| Parsing | Python + `xlrd` 2.0.1     | Already verified against the real file                                 |
+| Store   | SQLite                    | Single user, single machine, zero setup                                |
+| API     | FastAPI + Pydantic        | Typed request/response; the typing will feel familiar coming from ABAP |
+| UI      | React + TypeScript (Vite) | The learning payload; carries into React Native for step 2             |
+| Tests   | pytest + Vitest           | One command per side                                                   |
 
 **No packaging.** One command starts the API and serves the UI; the "app" is a
 browser tab at `localhost`. Tauri can wrap the same React later (intent §4).
@@ -641,4 +641,4 @@ Non-blocking — defaults chosen, stated for veto:
 - [ ] Five screens (§11) are the right five
 - [ ] Slice order (§13) is agreeable
 - [ ] Five flagged concerns reviewed
-- [ ] **Approved → proceed to `plan.md` for S1**
+- [x] **Approved → proceed to `plan.md` for S1** — ✅ 2026-11-02
