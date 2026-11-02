@@ -1,6 +1,6 @@
 # Plan — S1: Parse → SQLite
 
-**Status:** 🟡 Awaiting approval
+**Status:** 🟢 **APPROVED** 2026-11-02 — in progress
 **Slice:** S1 of 6 (see [`spec/spec.md`](../spec/spec.md) §13)
 **Author:** Claude (agent-written), for review by Jose
 **Date:** 2026-11-02
@@ -19,14 +19,14 @@ with a CLI that reports what happened. **No categorization** (that is S2) and
 
 ### Done when
 
-| # | Criterion | How it is checked |
-|---|---|---|
-| D1 | The 9-year file imports as **10,034 rows, 1 rejected** | `pf import` output |
-| D2 | Re-importing the same file inserts **0**, skips **10,034** | run it twice |
-| D3 | The October file then imports **127 new** rows | `pf import` output |
-| D4 | `pf summary` reports counts, date range and totals per kind | eyeball |
-| D5 | `make test` passes | CI-less, but one command |
-| D6 | Every trap in spec §12 that belongs to S1 has a test | review the list in §5 |
+| #   | Criterion                                                   | How it is checked        |
+| --- | ----------------------------------------------------------- | ------------------------ |
+| D1  | The 9-year file imports as **10,034 rows, 1 rejected**      | `pf import` output       |
+| D2  | Re-importing the same file inserts **0**, skips **10,034**  | run it twice             |
+| D3  | The October file then imports **127 new** rows              | `pf import` output       |
+| D4  | `pf summary` reports counts, date range and totals per kind | eyeball                  |
+| D5  | `python -m pytest` passes                                   | one command (see note)   |
+| D6  | Every trap in spec §12 that belongs to S1 has a test        | review the list in §5    |
 
 ### Explicitly not in S1
 
@@ -37,17 +37,29 @@ coverage thresholds, the second account, snapshot export.
 
 ## 2. Dependencies
 
-Deliberately two:
+⚠️ **Deviation from the approved plan (2026-11-02).** The plan said two
+dependencies. It is three — but still **one at runtime**:
 
 ```
-xlrd==2.0.1     # reads legacy BIFF8; verified against the real file
+xlrd==2.0.1     # runtime: reads legacy BIFF8; verified against the real file
 pytest>=8       # dev only
+xlwt>=1.3       # dev only: WRITES .xls, for synthetic fixtures
 ```
+
+`xlwt` was missed when planning: `xlrd` only *reads*, so there was no way to
+produce the `.xls` test fixtures the plan calls for in step 4. Verified that
+`xlwt` writes a file `xlrd` reads back correctly, including the sheet name.
+Dev-only, so nothing ships with it.
 
 No ORM — the schema is six tables and the queries are simple; `sqlite3` from
 the standard library is less to learn and less to go wrong. No `pandas`: it
 would be the largest dependency in the project for work that is a loop.
 No CLI framework — `argparse` is stdlib.
+
+⚠️ **Deviation 2: no Makefile.** `make` is not installed on the originator's
+Windows machine, so a `Makefile` would be a file he cannot run. The single
+command is **`python -m pytest`**, with the CLI invoked directly. The README
+documents both. Dropping the Makefile from the file list in §3.
 
 ---
 
@@ -57,7 +69,6 @@ New files only; the repo currently has no code.
 
 ```
 pyproject.toml                   project metadata + pytest config
-Makefile                         make test | import | summary | coverage(S2)
 .env.example                     documents PF_DB_PATH
 README.md                        how to run it
 
@@ -103,20 +114,20 @@ a file or a database.
 
 Pure functions first, I/O last, so each step is verifiable when written.
 
-| # | Step | Why here |
-|---|---|---|
-| 1 | `pyproject.toml`, `Makefile`, package skeleton | `make test` must work before there is anything to test |
-| 2 | `config.py` | Everything else needs the DB path |
-| 3 | `db/schema.sql` + `connection.py` | Lift the DDL verbatim from the approved spec |
-| 4 | **`tests/fixtures/make_xls.py`** | **Before the reader.** Tests need input, and a generator forces the real file's quirks to be stated explicitly |
-| 5 | `normalize.py` + tests | Pure, self-contained, highest trap density |
-| 6 | `kinds.py` + tests | Pure, table-driven |
-| 7 | `identity.py` + tests | Pure, one function |
-| 8 | `reader.py` + tests | Needs fixtures from step 4 |
-| 9 | `importer.py` + tests | Integration; needs all the above |
-| 10 | `cli.py` | Thin wiring over a working importer |
-| 11 | Run against the **real** files; confirm D1–D4 | The acceptance moment |
-| 12 | `README.md`; draft `CLAUDE.md` | Written once there is a codebase to describe |
+| #   | Step                                           | Why here                                                                                                       |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1 | `pyproject.toml`, package skeleton | the test command must work before there is anything to test |
+| 2   | `config.py`                                    | Everything else needs the DB path                                                                              |
+| 3   | `db/schema.sql` + `connection.py`              | Lift the DDL verbatim from the approved spec                                                                   |
+| 4   | **`tests/fixtures/make_xls.py`**               | **Before the reader.** Tests need input, and a generator forces the real file's quirks to be stated explicitly |
+| 5   | `normalize.py` + tests                         | Pure, self-contained, highest trap density                                                                     |
+| 6   | `kinds.py` + tests                             | Pure, table-driven                                                                                             |
+| 7   | `identity.py` + tests                          | Pure, one function                                                                                             |
+| 8   | `reader.py` + tests                            | Needs fixtures from step 4                                                                                     |
+| 9   | `importer.py` + tests                          | Integration; needs all the above                                                                               |
+| 10  | `cli.py`                                       | Thin wiring over a working importer                                                                            |
+| 11  | Run against the **real** files; confirm D1–D4  | The acceptance moment                                                                                          |
+| 12  | `README.md`; draft `CLAUDE.md`                 | Written once there is a codebase to describe                                                                   |
 
 Step 4 before step 8 is the important ordering choice. Writing the generator
 first means every quirk measured in `intent.md` §3 gets encoded as something a
@@ -333,3 +344,34 @@ Honest limits, so the next slice starts from the truth:
 - [ ] `--dry-run` worth having in S1
 - [ ] Test list covers the traps
 - [ ] **Approved → implement S1**
+
+---
+
+## 11. Progress log
+
+Updated as implementation proceeds, per the convention at the top of this file.
+
+| Step | State | Notes |
+|---|---|---|
+| 1 — scaffolding | ✅ done | `pyproject.toml`; src layout; no Makefile (deviation 2) |
+| 2 — `config.py` | ✅ done | `PF_DB_PATH`, default `%LOCALAPPDATA%/PersonalFinance` |
+| 3 — schema + connection | ✅ done | DDL from spec §3, tables reordered so FK targets precede referrers; WAL + `foreign_keys=ON` |
+| 4 — fixture generator | ✅ done | `tests/fixtures/make_xls.py`; needed `xlwt` (deviation 1) |
+| 5 — `normalize.py` | ✅ done | **27 tests passing** |
+| 6 — `kinds.py` | ⏳ next | |
+| 7 — `identity.py` | ⬜ | |
+| 8 — `reader.py` | ⬜ | |
+| 9 — `importer.py` | ⬜ | |
+| 10 — `cli.py` | ⬜ | |
+| 11 — real-file acceptance | ⬜ | D1–D4 |
+| 12 — README, `CLAUDE.md` | ⬜ | |
+
+### Deviations from the approved plan
+
+1. **`xlwt` added** as a dev dependency — `xlrd` cannot write, so fixtures
+   were impossible as planned. Runtime dependencies unchanged (one).
+2. **No Makefile** — `make` is not installed on the target machine. The single
+   test command is `python -m pytest`.
+3. **Schema table order changed** from the spec's listing so each foreign-key
+   target is created before the table referencing it. No column changes; the
+   spec's DDL is otherwise verbatim.
