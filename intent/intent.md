@@ -43,7 +43,7 @@ one step away instead of rebuilt from scratch every time.
 ✅ A small app with a monthly rhythm:
 
 1. Once a month, download the Excel export from the bank *(manual, but the bank
-   generates it automatically — the cost is a download, not data entry)*
+   generates it automatically — the cost is a download, not data entry)*. Also possible to upload different periods. 
 2. Feed it to the app
 3. Transactions are categorized automatically by a rule engine
 4. Anything the engine can't categorize is surfaced for a decision, and that
@@ -69,6 +69,7 @@ So there are **three** requirements here, not one:
 3. ✅ **Flexible, saveable filters** — easy to build a slice and easy to keep
    it. This is a direct answer to the bank's second failure ("the work is
    never banked"), so it is a first-class feature, not a later addition.
+4. List of transactions is also needed.
 
 ### The categorization engine
 ✅ **Bootstrap the rules from history, then maintain them by exception.**
@@ -95,8 +96,8 @@ are diffable in git and editable without touching code.
 
 - ✅ **Jose, sole user.** Tracking family spending.
 - ✅ **Input: monthly Excel export from the bank.** Manual download, no API.
-- ✅ **Originator is an ABAP developer** — expects encapsulation and clear
-  interfaces; thinks in classes and APIs.
+- ✅ **~~Originator is an ABAP developer** — expects encapsulation and clear~~
+  ~~interfaces; thinks in classes and APIs~~. This was just a comment. Find the better solution
 - ✅ **Originator wants to build an iPhone app** — see §4.
 
 ### The data — profiled from a real export (2026-11-01)
@@ -194,14 +195,14 @@ self-identifies**, so the importer reads the account rather than asking.
 different points of the process"* — which is a fair instinct. Where the cost
 actually falls:
 
-| Area | Cost | Assessment |
-|---|---|---|
-| Data model | an `account` column | ~zero; already in the source data |
-| Parser | none | same format, self-identifying |
-| Rules & categories | none | shared across accounts |
-| Transfer exclusion | real but small | ~15 lines; detectable via `02`/`067` codes; only needed once two accounts are loaded |
-| UI | an account filter | modest |
-| **The monthly ritual** | **2–3 downloads instead of 1** | **the real cost — recurring, borne by the user, forever** |
+| Area                   | Cost                           | Assessment                                                                           |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| Data model             | an `account` column            | ~zero; already in the source data                                                    |
+| Parser                 | none                           | same format, self-identifying                                                        |
+| Rules & categories     | none                           | shared across accounts                                                               |
+| Transfer exclusion     | real but small                 | ~15 lines; detectable via `02`/`067` codes; only needed once two accounts are loaded |
+| UI                     | an account filter              | modest                                                                               |
+| **The monthly ritual** | **2–3 downloads instead of 1** | **the real cost — recurring, borne by the user, forever**                            |
 
 ✅ **Decision: model accounts from day one, load only the joint account in v1.**
 
@@ -283,12 +284,12 @@ attribution *within* the joint account is not pursued.
 Discovered while checking whether imports need to deduplicate. Tested on the
 9-year file (10,034 real rows):
 
-| Candidate key | Collisions |
-|---|---|
-| `date + income + expense + merchant` | **98** |
-| `date + saldo` | 25 |
-| `account + date + saldo + income + expense` | 2 |
-| **hash of the full source row** | **0** |
+| Candidate key                               | Collisions |
+| ------------------------------------------- | ---------- |
+| `date + income + expense + merchant`        | **98**     |
+| `date + saldo`                              | 25         |
+| `account + date + saldo + income + expense` | 2          |
+| **hash of the full source row**             | **0**      |
 
 The 98 collisions are **not duplicates — they are genuine distinct
 transactions**: two coffees at the same bar, on the same day, for the same
@@ -323,19 +324,47 @@ in a first check was an artefact of the undated trailing junk row.)*
   working tool**, so stopping at any point is a legitimate outcome rather than
   an abandoned project.
 
-  ⚠️ **Ordering is deliberately counterintuitive — the iPhone app comes
-  first, not last.**
-  - The Python side is **already de-risked**: the real file has been parsed,
-    the traps found, the identity key settled. No unknowns remain there.
-  - The **unknown** is whether the Expo → Windows → iPhone pipeline works
-    smoothly, and whether the originator enjoys it. Unknowns go first —
-    discovering a hostile toolchain in week one with a throwaway beats
-    discovering it in month three with real data waiting on it.
-  - The app is **half the motivation.** Weeks of Excel plumbing teach an ABAP
-    developer nothing new, and that is precisely where this project would die.
+  ⚠️ **Correction (2026-11-02).** An earlier draft argued for building the
+  iPhone app *first*, to de-risk the toolchain. **The originator overruled
+  that, and was right.** His reasoning: the desktop app is also worth learning,
+  and it puts a usable tool in his hands sooner.
 
-  First slice: an ugly Expo app on the phone showing a few hardcoded
-  categories. Not useful, entirely disposable, proves the riskiest part works.
+  What the agent's argument missed is that **the two halves are not
+  symmetrical**:
+  - The **desktop app is a complete tool on its own.** Once it exists, "how
+    much did I spend by category" is already answerable at the desk. The phone
+    adds convenience, not capability.
+  - The **phone app is useless without it** — it renders a snapshot only the
+    desktop can produce. "iPhone first" would have meant building a throwaway
+    on fake data: a toolchain test, not progress toward the tool.
+
+  ✅ **DECIDED — two steps.**
+
+  | | Step 1 — "make it work" | Step 2 |
+  |---|---|---|
+  | **Deliverable** | Working desktop tool | iPhone app |
+  | **Stack** | Python backend + React UI | React Native + Expo |
+  | **Outcome** | The real question, answerable | The same answer, in a pocket |
+
+  Step 1 ends with something genuinely used every month. Step 2 is a real
+  project of its own, started from a working foundation rather than a guess.
+
+  ✅ **The learning is staged so it compounds.** React on the desktop is most
+  of the mental model for React Native: same components, same hooks, same JSX,
+  different primitives. Python keeps the Excel parsing, where `xlrd` is already
+  proven against the real file. Nothing learned in step 1 is wasted in step 2.
+
+  ✅ **Tauri deferred, not rejected.** Tauri and Electron are shells that host a
+  web frontend, so the React UI built in step 1 can be wrapped in a real
+  double-click window later with little change. Taking it *now* would mean
+  rewriting the hardest, already-working part (the BIFF8 parser) in Rust — a
+  second new language serving neither stated goal. Revisit when Rust is wanted
+  for its own sake.
+
+  ℹ️ **Still recommended, not yet agreed:** an hour-long Expo "hello world"
+  spike on the real phone, early, purely to confirm the Windows → iPhone
+  toolchain cooperates. Cheap insurance against discovering a hostile pipeline
+  at the start of step 2.
 - ✅ **Privacy.** The bootstrap step means sending merchant descriptions to a
   model. Agreed mitigation: send only the **deduplicated list of unique
   description strings** — now known to be ~1,082 of them — with no amounts,
@@ -401,8 +430,13 @@ that the desktop tool reads. Not a runtime dependency of anything.
   that matters; card numbers cannot support it.
 - ✅ Writing from the phone — the phone is read-only.
 - ✅ Loading a second account in v1 — modelled, but not loaded.
-- ❓ Budgeting and forecasting — **not yet discussed.** Deliberately left
-  unstated rather than assumed either way.
+- ✅ **Budgeting and forecasting — out of scope for v1.** Everything here is
+  about *understanding* past spending, not steering future spending. Budgets
+  need *expected* amounts alongside actual ones: a second data model and a
+  second interface, on a project whose named risk is not getting finished.
+  Recorded as the agent's assumption, open to veto.
+- ✅ Tauri / Electron packaging in step 1 — deferred; the React UI can be
+  wrapped later.
 
 ---
 
@@ -477,7 +511,11 @@ Blocking:
 | 2026-11-01 | Category totals shown against a comparison reference | A bare total is not actionable; having to remember last month's figure is the "work is never banked" problem again |
 | 2026-11-01 | Wife's personal account: possible, not committed | Does not shape the design while v1 is joint-account only |
 | 2026-11-01 | Thin end-to-end slices, each leaving a working tool | Resolves "too little vs too much effort" by making every stopping point a legitimate one |
-| 2026-11-01 | Build the iPhone app first, before the data pipeline | The Python side is already de-risked; the Expo/Windows/iPhone toolchain is the real unknown, and the app carries half the motivation |
+| ~~2026-11-01~~ | ~~Build the iPhone app first~~ | **Superseded 2026-11-02** — the agent's argument missed that the desktop app is a complete tool while the phone app is not |
+| 2026-11-02 | Two steps: working desktop tool first, iPhone app second | Originator's call. The desktop half holds all the capability and yields a usable tool sooner; the phone half depends on it entirely |
+| 2026-11-02 | Desktop = Python backend + React UI; no packaging in step 1 | Python keeps the proven BIFF8 parser; React is most of the mental model for React Native, so the learning compounds into step 2 |
+| 2026-11-02 | Tauri deferred, not rejected | It hosts a web frontend, so the React UI can be wrapped later. Adopting it now would mean rewriting the working parser in Rust — a second new language serving neither goal |
+| 2026-11-02 | Budgeting and forecasting out of scope for v1 | Needs expected-vs-actual, a second data model and interface; the named risk is not finishing. Agent's assumption, open to veto |
 | 2026-11-01 | Repo stays local for now; nothing pushed to GitHub | `main` on the remote still holds v1 and `intent/` is unpushed. The repo is public and these artifacts describe the family's finances in detail. Revisit by making the repo private and pushing — explicitly deferred, not decided against |
 
 ---
