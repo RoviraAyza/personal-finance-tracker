@@ -361,6 +361,7 @@
     {"pattern": "LA FARANDULA", "match": "prefix", "category": "Eating out", "priority": 100, "note": "confirmed by Jose 2026-11-03"},
     {"pattern": "GOLOKA", "match": "prefix", "category": "Beauty and care", "priority": 100, "note": "hairdresser -- confirmed by Jose 2026-11-03"},
     {"pattern": "GLAMOUR VG", "match": "prefix", "category": "Beauty and care", "priority": 100, "note": "confirmed by Jose 2026-11-03"},
+    {"pattern": "CINQUANTA", "match": "prefix", "category": "Eating out", "priority": 100, "note": "confirmed by Jose 2026-11-03"},
     {"pattern": "*", "match": "any", "category": "Transfers", "priority": 900, "kind_filter": "transfer_person", "note": "structural fallback: a person-to-person transfer, often with no description at all"},
     {"pattern": "*", "match": "any", "category": "Transfers", "priority": 900, "kind_filter": "transfer_own"},
     {"pattern": "*", "match": "any", "category": "Transfers", "priority": 900, "kind_filter": "transfer_in"},
